@@ -5,7 +5,8 @@
 | Status | Approved |
 | Story map | Release 0 — Walking skeleton / Join, Present myself, Run the site |
 | Modules | users, profiles |
-| ADRs | [0002 Modular monolith](../../adr/0002-modular-monolith.md), [0003 Platform stack](../../adr/0003-platform-stack.md) |
+| ADRs | [0002 Modular monolith](../../adr/0002-modular-monolith.md), [0003 Platform stack](../../adr/0003-platform-stack.md), [0004 Module data access](../../adr/0004-module-data-access.md), [0005 Application rate limiting](../../adr/0005-application-rate-limiting.md) |
+| Amended | 2026-10-04: AC2 requires an explicit confirm step, so email link scanners cannot consume the token |
 
 ## User value
 As someone who wants to discuss things I can't discuss with my everyday friends, I want to create an account with only an email and a password, without revealing who I am, and see my own private profile page, so that I have a safe, secure place in the community to return to.
@@ -18,10 +19,10 @@ As the team, we want this first slice to run end to end on the full local stack 
 
 ### Sign up
 - **AC1** @regression — Given any visitor who is not logged in (sign-up is open, no invite needed), when they submit the sign-up form with a valid email and a password that meets the password policy, then an unverified account is created, a verification email is sent, and they see a "check your email" page.
-- **AC2** @regression — Given an unverified account, when the user opens the verification link from the email, then the email is marked verified, the user is logged in automatically (a session is created) and is taken to their own profile page.
+- **AC2** @regression — Given an unverified account, when the user opens the verification link from the email and confirms on the page it opens, then the email is marked verified, the user is logged in automatically (a session is created) and is taken to their own profile page.
 - **AC3** — Given a visitor on the sign-up form, when they submit a malformed email or a password that does not meet the policy (fewer than 12 or more than 72 characters), then they see field-level errors, and no account is created and no email is sent.
 - **AC4** (abuse: enumeration) — Given an email that already has an account, when a visitor signs up with it, then they see exactly the same response as in AC1 (same page, same wording, comparable timing), and the existing account is unchanged (password, verification state, sessions).
-- **AC5** (denied) — Given a verification link that is expired, already used or tampered with, when it is opened, then the account is not verified, the user sees a generic "link invalid or expired" message and can request a new verification email.
+- **AC5** (denied) — Given a verification link that is expired, already used or tampered with, when it is opened and confirmed, then the account is not verified, the user sees a generic "link invalid or expired" message and can request a new verification email.
 
 ### Log in
 - **AC6** @regression — Given a verified user who is logged out, when they log in with the correct email and password, then a session is created and they are taken to their own profile page.
@@ -84,6 +85,7 @@ As the team, we want this first slice to run end to end on the full local stack 
 - **After verification:** the user is logged in automatically (AC2).
 - **Rate-limit layers:** both Supabase Auth's built-in limits and our own server-side limiter. Our limiter is what AC9 tests; Cloudflare rate limiting is added on top in 0002.
 - **Password reset:** added to the story map in Release 1 (Join). It stays out of scope here.
+- **Verification link:** opening the link (GET) never consumes the token; the user confirms with a button (POST). This protects against email security scanners that follow links (AC2, AC5).
 - **Breached-password check:** deferred to a later slice. Supabase's built-in check needs a paid plan; the free alternative is a k-anonymity check against Have I Been Pwned.
 
 ## Open questions

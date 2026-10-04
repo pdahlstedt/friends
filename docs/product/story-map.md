@@ -15,6 +15,8 @@ Priority rule: next slice = highest **value per effort** or highest **risk retir
 | **Release 1 — Minimum lovable** | | | | | |
 | OAuth login | Edit name, bio, avatar | Upload photo to my profile | | | Admin login behind Cloudflare Access |
 | Delete my account (GDPR) | View other users' public profiles | View a user's photos | | | Basic user list + suspend user |
+| Password reset | | | | | |
+| Confirm I'm 18+ at sign-up | | | | | |
 | **Release 2 — Social** | | | | | |
 | Export my data (GDPR) | Privacy settings (public/private profile) | Delete my photo | 1:1 text chat | | Report content → moderation queue |
 | | | Report a photo | Block a user | | Audit log of admin actions |
@@ -28,4 +30,5 @@ Priority rule: next slice = highest **value per effort** or highest **risk retir
 
 | Spec | Slice | Status |
 |---|---|---|
-| 0001 | Walking skeleton: sign up, log in, own profile, CI | Draft |
+| [0001](../specs/0001-create-account-and-profile/spec.md) | Walking skeleton: create an account and see my profile (local stack + CI gates) | Approved |
+| 0002 | Walking skeleton: live for the first real users (EU hosting, Cloudflare, real email) | Not started |

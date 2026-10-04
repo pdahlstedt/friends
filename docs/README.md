@@ -2,14 +2,14 @@
 
 All project knowledge lives in git, next to the code, and changes through pull requests.
 
-| Folder | What | Changes when |
-|---|---|---|
-| `product/` | Vision and story map — *why* and *in what order* | Priorities or goals change |
-| `specs/` | One folder per value slice — *what* to build and how we know it works | Before each feature |
-| `adr/` | Architecture Decision Records — *why* we chose something | A significant technical choice is made |
-| `architecture/` | C4 diagrams and module map — *how* it is built today | Module boundaries, interfaces or infra change |
-| `testing/` | Test strategy, coverage rules, regression suite | Test approach changes |
-| `checklists/` | Phase checklist for setup and launch | As items are completed |
+| Folder          | What                                                                  | Changes when                                  |
+| --------------- | --------------------------------------------------------------------- | --------------------------------------------- |
+| `product/`      | Vision and story map — _why_ and _in what order_                      | Priorities or goals change                    |
+| `specs/`        | One folder per value slice — _what_ to build and how we know it works | Before each feature                           |
+| `adr/`          | Architecture Decision Records — _why_ we chose something              | A significant technical choice is made        |
+| `architecture/` | C4 diagrams and module map — _how_ it is built today                  | Module boundaries, interfaces or infra change |
+| `testing/`      | Test strategy, coverage rules, regression suite                       | Test approach changes                         |
+| `checklists/`   | Phase checklist for setup and launch                                  | As items are completed                        |
 
 ## Flow
 

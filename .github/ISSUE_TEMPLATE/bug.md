@@ -5,6 +5,7 @@ labels: bug
 ---
 
 ## Spec / AC affected
+
 <!-- e.g. 0003-AC2, or "not covered by any spec" -->
 
 ## Steps to reproduce
@@ -14,4 +15,5 @@ labels: bug
 ## Actual
 
 ## Security relevant?
+
 <!-- If yes, do NOT file publicly — follow SECURITY.md instead. -->

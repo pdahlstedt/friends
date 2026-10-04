@@ -8,27 +8,27 @@ Priority rule: next slice = highest **value per effort** or highest **risk retir
 
 ## Activities
 
-| Join | Present myself | Share photos | Talk to people | Pay for more | Run the site |
-|---|---|---|---|---|---|
-| **Release 0 — Walking skeleton** | | | | | |
-| Sign up with email, verify, log in, log out | See my own (empty) profile page | | | | Deployed with CI, security headers, RLS test harness |
-| **Release 1 — Minimum lovable** | | | | | |
-| OAuth login | Edit name, bio, avatar | Upload photo to my profile | | | Admin login behind Cloudflare Access |
-| Delete my account (GDPR) | View other users' public profiles | View a user's photos | | | Basic user list + suspend user |
-| Password reset | | | | | |
-| Confirm I'm 18+ at sign-up | | | | | |
-| **Release 2 — Social** | | | | | |
-| Export my data (GDPR) | Privacy settings (public/private profile) | Delete my photo | 1:1 text chat | | Report content → moderation queue |
-| | | Report a photo | Block a user | | Audit log of admin actions |
-| **Release 3 — Revenue** | | | | | |
-| | Subscriber badge | Larger photo quota for subscribers | | Subscribe via Stripe Checkout | Manage ad slots |
-| | | | | Manage/cancel via Customer Portal | See subscription stats |
-| **Later** | | | | | |
-| MFA for users | | Albums | Group chat, images in chat | Yearly plan | Content analytics |
+| Join                                        | Present myself                            | Share photos                       | Talk to people             | Pay for more                      | Run the site                                         |
+| ------------------------------------------- | ----------------------------------------- | ---------------------------------- | -------------------------- | --------------------------------- | ---------------------------------------------------- |
+| **Release 0 — Walking skeleton**            |                                           |                                    |                            |                                   |                                                      |
+| Sign up with email, verify, log in, log out | See my own (empty) profile page           |                                    |                            |                                   | Deployed with CI, security headers, RLS test harness |
+| **Release 1 — Minimum lovable**             |                                           |                                    |                            |                                   |                                                      |
+| OAuth login                                 | Edit name, bio, avatar                    | Upload photo to my profile         |                            |                                   | Admin login behind Cloudflare Access                 |
+| Delete my account (GDPR)                    | View other users' public profiles         | View a user's photos               |                            |                                   | Basic user list + suspend user                       |
+| Password reset                              |                                           |                                    |                            |                                   |                                                      |
+| Confirm I'm 18+ at sign-up                  |                                           |                                    |                            |                                   |                                                      |
+| **Release 2 — Social**                      |                                           |                                    |                            |                                   |                                                      |
+| Export my data (GDPR)                       | Privacy settings (public/private profile) | Delete my photo                    | 1:1 text chat              |                                   | Report content → moderation queue                    |
+|                                             |                                           | Report a photo                     | Block a user               |                                   | Audit log of admin actions                           |
+| **Release 3 — Revenue**                     |                                           |                                    |                            |                                   |                                                      |
+|                                             | Subscriber badge                          | Larger photo quota for subscribers |                            | Subscribe via Stripe Checkout     | Manage ad slots                                      |
+|                                             |                                           |                                    |                            | Manage/cancel via Customer Portal | See subscription stats                               |
+| **Later**                                   |                                           |                                    |                            |                                   |                                                      |
+| MFA for users                               |                                           | Albums                             | Group chat, images in chat | Yearly plan                       | Content analytics                                    |
 
 ## Spec index
 
-| Spec | Slice | Status |
-|---|---|---|
-| [0001](../specs/0001-create-account-and-profile/spec.md) | Walking skeleton: create an account and see my profile (local stack + CI gates) | Approved |
-| 0002 | Walking skeleton: live for the first real users (EU hosting, Cloudflare, real email) | Not started |
+| Spec                                                     | Slice                                                                                | Status      |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------- |
+| [0001](../specs/0001-create-account-and-profile/spec.md) | Walking skeleton: create an account and see my profile (local stack + CI gates)      | Approved    |
+| 0002                                                     | Walking skeleton: live for the first real users (EU hosting, Cloudflare, real email) | Not started |

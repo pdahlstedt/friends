@@ -82,7 +82,14 @@ describe('securityHeaders (development)', () => {
       "'strict-dynamic'",
       "'unsafe-eval'",
     ]);
-    expect(headers['Content-Security-Policy']).not.toContain('unsafe-inline');
+  });
+
+  it("allows inline styles for the Next.js dev overlay, without a nonce (a nonce would make browsers ignore 'unsafe-inline')", () => {
+    expect(csp.get('style-src')).toEqual(["'self'", "'unsafe-inline'"]);
+  });
+
+  it('never allows inline scripts', () => {
+    expect(csp.get('script-src')).not.toContain("'unsafe-inline'");
   });
 
   it('does not upgrade requests on the plain-http dev server', () => {

@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto';
 
 export type SecurityHeaderOptions = {
   nonce: string;
-  /** `next dev` only: React needs eval for dev tooling, and the dev server is plain http. */
+  /** `next dev` only: eval for React dev tooling, inline styles for the dev overlay, plain http. */
   isDev: boolean;
 };
 
@@ -34,7 +34,9 @@ export function securityHeaders({ nonce, isDev }: SecurityHeaderOptions) {
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
-    `style-src 'self' 'nonce-${nonce}'`,
+    // Dev only: the Next.js dev overlay applies inline styles. No nonce there, because browsers
+    // ignore 'unsafe-inline' when a nonce is present. Production stays nonce-only.
+    isDev ? "style-src 'self' 'unsafe-inline'" : `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' blob: data:",
     "font-src 'self'",
     "connect-src 'self'",

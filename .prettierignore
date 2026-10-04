@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+.next/
+coverage/
+playwright-report/
+test-results/
+supabase/.temp/
+next-env.d.ts
+src/lib/db/types.generated.ts
+# Markdown is hand-formatted (docs, specs, ADRs).
+*.md

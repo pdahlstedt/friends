@@ -9,7 +9,7 @@ Format: `- [ ] Tn — <description> (AC refs) — <commit type>(<scope>)`
 - [x] T2 — Local Supabase: `supabase init`; `config.toml` with email confirmations, `minimum_password_length = 12`, `jwt_expiry = 900`, the confirmation template linking to `/auth/confirm?token_hash=…`, and raised local `[auth.rate_limit]` values. RLS test harness (role clients for anon, user A, user B) plus a global "RLS enabled on every app table" test. (AC18) — test(rls)
 - [x] T3 — CI: complete `.github/workflows/ci.yml` so it runs the full `pnpm verify` order against local Supabase, with env taken from `supabase status`, and uploads server logs and the Playwright report on failure. (AC19) — ci
 - [x] T4 — `src/lib`: validated `env.ts` (server-only), `UserId` branded type, and a structured logger with allowlisted fields plus email/JWT redaction. Unit tests at 100%. (AC20) — feat(lib)
-- [ ] T5 — Security headers: a `lib/security/headers.ts` builder (nonce CSP, HSTS, frame-ancestors, nosniff, Referrer-Policy, Permissions-Policy; dev vs production) with unit tests. `src/proxy.ts` sets a per-request nonce. Playwright config with a `webServer` that captures the server log. A system test asserting the headers on every page. (AC16) — security(app)
+- [x] T5 — Security headers: a `lib/security/headers.ts` builder (nonce CSP, HSTS, frame-ancestors, nosniff, Referrer-Policy, Permissions-Policy; dev vs production) with unit tests. `src/proxy.ts` sets a per-request nonce. Playwright config with a `webServer` that captures the server log. A system test asserting the headers on every page. (AC16) — security(app)
 
 ## Profiles
 

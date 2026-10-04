@@ -16,7 +16,9 @@ export default defineConfig({
   },
   projects: [{ name: 'desktop', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'pnpm start',
+    // Server log goes to logs/server.log: CI uploads it on failure, and the AC20 test (0001-T18)
+    // scans it for personal data. Truncated on every run.
+    command: 'mkdir -p logs && pnpm start > logs/server.log 2>&1',
     url: 'http://localhost:3000',
     reuseExistingServer: !isCI,
     timeout: 120_000,

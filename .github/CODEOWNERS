@@ -1,0 +1,11 @@
+# Security-sensitive areas require owner review.
+# Replace @your-github-username with your handle.
+
+/supabase/migrations/        @your-github-username
+/src/modules/users/          @your-github-username
+/src/modules/billing/        @your-github-username
+/src/modules/media/          @your-github-username
+/src/modules/admin/          @your-github-username
+/src/lib/adapters/           @your-github-username
+/.github/                    @your-github-username
+/docs/adr/                   @your-github-username

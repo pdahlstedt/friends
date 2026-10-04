@@ -3,12 +3,15 @@ import path from 'node:path';
 
 // Unit tests only. Contract, RLS and system tests have their own configs/scripts.
 export default defineConfig({
-  resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },
+  resolve: {
+    alias: {
+      '@': path.resolve(import.meta.dirname, 'src'),
+      'server-only': path.resolve(import.meta.dirname, 'tests/support/server-only-stub.ts'),
+    },
+  },
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',
-    // TODO(0001-T4): remove once the first unit tests exist.
-    passWithNoTests: true,
     coverage: {
       provider: 'v8',
       include: ['src/modules/**', 'src/lib/**'],

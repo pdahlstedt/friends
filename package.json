@@ -14,6 +14,7 @@
     "lint": "eslint . --max-warnings 0 && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
+    "db:types": "supabase gen types typescript --local --schema profiles | prettier --parser typescript > src/lib/db/types.generated.ts",
     "test": "vitest run --coverage",
     "test:rls": "vitest run --config vitest.rls.config.ts",
     "test:contracts": "vitest run --config vitest.contracts.config.ts",

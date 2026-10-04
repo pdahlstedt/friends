@@ -1,0 +1,2 @@
+-- Deterministic local/CI seed (docs/testing/strategy.md). No production data, ever.
+-- Tests create their own users through factories; nothing is seeded yet.

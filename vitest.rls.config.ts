@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     include: ['tests/rls/**/*.test.ts'],
     environment: 'node',
-    // TODO(0001-T2): remove once the RLS harness and global RLS test exist.
-    passWithNoTests: true,
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

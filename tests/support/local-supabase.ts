@@ -8,6 +8,8 @@ export type LocalSupabase = {
   dbUrl: string;
   anonKey: string;
   serviceRoleKey: string;
+  /** Mailpit (local SMTP sink) HTTP API, where Supabase Auth sends verification emails. */
+  mailpitUrl: string;
 };
 
 let cached: LocalSupabase | undefined;
@@ -20,8 +22,9 @@ export function localSupabase(): LocalSupabase {
     dbUrl: required(env, 'SUPABASE_DB_URL'),
     anonKey: required(env, 'SUPABASE_ANON_KEY'),
     serviceRoleKey: required(env, 'SUPABASE_SERVICE_ROLE_KEY'),
+    mailpitUrl: required(env, 'MAILPIT_URL'),
   };
-  for (const url of [config.apiUrl, config.dbUrl]) {
+  for (const url of [config.apiUrl, config.dbUrl, config.mailpitUrl]) {
     const host = new URL(url).hostname;
     if (host !== '127.0.0.1' && host !== 'localhost') {
       throw new Error(`Refusing to run tests against non-local Supabase host: ${host}`);
@@ -44,6 +47,7 @@ function readStatus(): Env {
     SUPABASE_DB_URL: status.DB_URL,
     SUPABASE_ANON_KEY: status.ANON_KEY,
     SUPABASE_SERVICE_ROLE_KEY: status.SERVICE_ROLE_KEY,
+    MAILPIT_URL: status.MAILPIT_URL,
   };
 }
 

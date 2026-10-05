@@ -35,6 +35,49 @@ export type Database = {
       [_ in never]: never;
     };
   };
+  ratelimit: {
+    Tables: {
+      buckets: {
+        Row: {
+          count: number;
+          expires_at: string;
+          key: string;
+          window_start: string;
+        };
+        Insert: {
+          count: number;
+          expires_at: string;
+          key: string;
+          window_start: string;
+        };
+        Update: {
+          count?: number;
+          expires_at?: string;
+          key?: string;
+          window_start?: string;
+        };
+        Relationships: [];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      hit: {
+        Args: { p_key: string; p_limit: number; p_window_seconds: number };
+        Returns: {
+          allowed: boolean;
+          retry_after_seconds: number;
+        }[];
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
 };
 
 type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
@@ -140,6 +183,9 @@ export type CompositeTypes<
 
 export const Constants = {
   profiles: {
+    Enums: {},
+  },
+  ratelimit: {
     Enums: {},
   },
 } as const;

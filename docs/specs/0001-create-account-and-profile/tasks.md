@@ -20,7 +20,7 @@ Format: `- [ ] Tn — <description> (AC refs) — <commit type>(<scope>)`
 ## Rate limiting (ADR-0005)
 
 - [x] T9 — Migration `ratelimit` schema, `buckets` table (RLS, no policies), `hit()` function (service_role only), and the `pg_cron` cleanup job. RLS tests showing anon and authenticated are denied on the table and the function. (AC9, AC18) — feat(lib)
-- [ ] T10 — `RateLimiter` adapter: interface, in-memory fake with a clock, Postgres `real/` implementation. Contract suite covering the limit, window reset, `retryAfterSeconds` and concurrent hits. (AC9) — feat(adapters)
+- [x] T10 — `RateLimiter` adapter: interface, in-memory fake with a clock, Postgres `real/` implementation. Contract suite covering the limit, window reset, `retryAfterSeconds` and concurrent hits. (AC9) — feat(adapters)
 - [ ] T11 — `lib/rate-limit` keys (HMAC, email normalization) and a policy helper covering multiple dimensions; `lib/http/client-ip.ts` (trusted header, `unknown` fallback); `lib/security/timing.ts` (`withMinimumDuration`). Unit tests at 100%. (AC4, AC7, AC9) — feat(lib)
 
 ## Auth adapter and users module

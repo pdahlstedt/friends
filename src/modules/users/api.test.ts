@@ -7,17 +7,47 @@ import {
 import { createFakeRateLimiter } from '@/lib/adapters/rate-limit/fake';
 import { RateLimiterError, type RateLimiter } from '@/lib/adapters/rate-limit/rate-limiter';
 import { createLogger } from '@/lib/log';
+import type { UserId } from '@/lib/types/ids';
+import { ProfilesError, type ProfilesApi } from '@/modules/profiles';
 import { createUsersApi } from './api';
 
 const PASSWORD = 'correct horse battery staple';
 const MIN_MS = 800;
 
+/** A minimal browser cookie store, so sessions persist across calls in one test. */
+function cookieJar() {
+  const cookies = new Map<string, string>();
+  return {
+    cookies,
+    getAll: () => [...cookies].map(([name, value]) => ({ name, value })),
+    setAll: (toSet: { name: string; value: string; options: { maxAge?: number } }[]) => {
+      for (const c of toSet) {
+        if (c.options.maxAge === 0) cookies.delete(c.name);
+        else cookies.set(c.name, c.value);
+      }
+    },
+  };
+}
+
+/** Records ensureProfile calls; can be made to fail. */
+function recordingProfiles() {
+  const ensured: UserId[] = [];
+  let failure: ProfilesError | undefined;
+  const api: ProfilesApi = {
+    ensureProfile: async (userId) => {
+      if (failure) throw failure;
+      ensured.push(userId);
+    },
+    getOwnProfile: async () => null,
+  };
+  return { api, ensured, fail: (e: ProfilesError) => (failure = e) };
+}
+
 function setup(options: { limiter?: RateLimiter } = {}) {
   const backend = createFakeAuthBackend();
-  const auth = createFakeAuthProvider(backend, {
-    cookies: { getAll: () => [], setAll: () => {} },
-    secureCookies: true,
-  });
+  const jar = cookieJar();
+  const auth = createFakeAuthProvider(backend, { cookies: jar, secureCookies: true });
+  const profiles = recordingProfiles();
   let now = 0;
   const sleeps: number[] = [];
   const clock = {
@@ -30,12 +60,13 @@ function setup(options: { limiter?: RateLimiter } = {}) {
   const logLines: string[] = [];
   const api = createUsersApi({
     auth,
+    profiles: profiles.api,
     limiter: options.limiter ?? createFakeRateLimiter(),
     rateLimitSecret: 'r'.repeat(32),
     clock,
     logger: createLogger((_level, line) => logLines.push(line)),
   });
-  return { api, backend, sleeps, logLines, advance: (ms: number) => (now += ms) };
+  return { api, backend, jar, profiles, sleeps, logLines };
 }
 
 const ctx = (clientIp = '203.0.113.7') => ({ clientIp });
@@ -257,5 +288,208 @@ describe('resendVerification', () => {
       outcome: 'sent_if_applicable',
     });
     expect(logLines.join('\n')).not.toContain(email);
+  });
+});
+
+/** Signs up `email` and returns its verification token (fake inbox). */
+async function signedUp(
+  api: ReturnType<typeof setup>['api'],
+  backend: ReturnType<typeof setup>['backend'],
+  email: string,
+) {
+  await api.signUp({ email, password: PASSWORD }, ctx('198.51.100.200'));
+  return issuedTokenFor(backend, email)!;
+}
+
+describe('confirmEmail', () => {
+  it('[0001-AC2] confirms, signs in and ensures the profile (AC11)', async () => {
+    const { api, backend, profiles, logLines } = setup();
+    const email = newEmail();
+    const token = await signedUp(api, backend, email);
+
+    expect(await api.confirmEmail({ tokenHash: token })).toEqual({ kind: 'confirmed' });
+    const user = await api.getCurrentUser();
+    expect(user?.id).toBe(backend.users.get(email)!.id);
+    expect(profiles.ensured).toEqual([user!.id]);
+    expect(JSON.parse(logLines.at(-1)!)).toMatchObject({
+      event: 'users.confirm_email',
+      outcome: 'confirmed',
+    });
+    expect(logLines.join('\n')).not.toContain(token);
+  });
+
+  it('[0001-AC5] an unknown or reused token is invalid_link, with no session or profile', async () => {
+    const { api, backend, profiles } = setup();
+    const token = await signedUp(api, backend, newEmail());
+    await api.confirmEmail({ tokenHash: token });
+    await api.logOut();
+    profiles.ensured.length = 0;
+
+    for (const tokenHash of [token, 'pkce_0123456789abcdef']) {
+      expect(await api.confirmEmail({ tokenHash })).toEqual({ kind: 'invalid_link' });
+    }
+    expect(await api.getCurrentUser()).toBeNull();
+    expect(profiles.ensured).toEqual([]);
+  });
+
+  it.each([
+    null,
+    {},
+    { tokenHash: '' },
+    { tokenHash: 'has spaces' },
+    { tokenHash: 'a/b' },
+    { tokenHash: 'x'.repeat(201) },
+    { tokenHash: 'abc', userId: 'x' },
+  ])(
+    '[0001-AC5] rejects malformed input %j as invalid_link without calling Supabase',
+    async (input) => {
+      const { api, backend } = setup();
+      backend.failures.set('verify', 'unavailable'); // would throw if reached
+      expect(await api.confirmEmail(input)).toEqual({ kind: 'invalid_link' });
+    },
+  );
+
+  it('maps a Supabase rate limit to rate_limited', async () => {
+    const { api, backend } = setup();
+    backend.failures.set('verify', 'rate_limited');
+    expect(await api.confirmEmail({ tokenHash: 'abc' })).toEqual({ kind: 'rate_limited' });
+  });
+
+  it('is not padded (a token reveals nothing about accounts)', async () => {
+    const { api, sleeps } = setup();
+    await api.confirmEmail({ tokenHash: 'abc' });
+    expect(sleeps).toEqual([]);
+  });
+
+  it('passes a profile failure on (the next log-in ensures it again)', async () => {
+    const { api, backend, profiles } = setup();
+    const token = await signedUp(api, backend, newEmail());
+    profiles.fail(new ProfilesError('unavailable'));
+    await expect(api.confirmEmail({ tokenHash: token })).rejects.toBeInstanceOf(ProfilesError);
+  });
+});
+
+describe('logIn', () => {
+  async function confirmedUser() {
+    const s = setup();
+    const email = newEmail();
+    const token = await signedUp(s.api, s.backend, email);
+    await s.api.confirmEmail({ tokenHash: token });
+    await s.api.logOut();
+    s.profiles.ensured.length = 0;
+    s.sleeps.length = 0;
+    return { ...s, email, id: s.backend.users.get(email)!.id };
+  }
+
+  it('[0001-AC6] logs in a confirmed user and ensures the profile', async () => {
+    const { api, email, id, profiles } = await confirmedUser();
+    expect(await api.logIn({ email: email.toUpperCase(), password: PASSWORD }, ctx())).toEqual({
+      kind: 'logged_in',
+    });
+    expect(await api.getCurrentUser()).toEqual({ id });
+    expect(profiles.ensured).toEqual([id]);
+  });
+
+  it('[0001-AC7] gives the same answer, padded, for a wrong password and an unknown email', async () => {
+    const { api, email, sleeps } = await confirmedUser();
+    const wrong = await api.logIn({ email, password: 'wrong password!' }, ctx('192.0.2.1'));
+    const unknown = await api.logIn({ email: newEmail(), password: PASSWORD }, ctx('192.0.2.2'));
+    expect(wrong).toEqual({ kind: 'invalid_credentials' });
+    expect(unknown).toEqual(wrong);
+    expect(sleeps).toEqual([MIN_MS, MIN_MS]);
+    expect(await api.getCurrentUser()).toBeNull();
+  });
+
+  it('[0001-AC8] tells an unconfirmed user to verify, without a session or profile', async () => {
+    const { api, backend, profiles } = setup();
+    const email = newEmail();
+    await signedUp(api, backend, email);
+    expect(await api.logIn({ email, password: PASSWORD }, ctx())).toEqual({
+      kind: 'email_not_confirmed',
+    });
+    expect(await api.getCurrentUser()).toBeNull();
+    expect(profiles.ensured).toEqual([]);
+  });
+
+  it('[0001-AC9] allows 5 attempts per email per 15 min, then rate-limits even the right password', async () => {
+    const { api, email, profiles } = await confirmedUser();
+    for (let i = 0; i < 5; i++) {
+      await api.logIn({ email, password: 'wrong password!' }, ctx(`198.51.100.${i + 10}`));
+    }
+    expect(await api.logIn({ email, password: PASSWORD }, ctx('198.51.100.99'))).toEqual({
+      kind: 'rate_limited',
+    });
+    expect(await api.getCurrentUser()).toBeNull();
+    expect(profiles.ensured).toEqual([]);
+  });
+
+  it('[0001-AC9] allows 5 attempts per IP across emails', async () => {
+    const { api } = setup();
+    for (let i = 0; i < 5; i++) await api.logIn({ email: newEmail(), password: PASSWORD }, ctx());
+    expect(await api.logIn({ email: newEmail(), password: PASSWORD }, ctx())).toEqual({
+      kind: 'rate_limited',
+    });
+  });
+
+  it('maps a Supabase rate limit to rate_limited', async () => {
+    const { api, backend } = setup();
+    backend.failures.set('signIn', 'rate_limited');
+    expect(await api.logIn({ email: newEmail(), password: PASSWORD }, ctx())).toEqual({
+      kind: 'rate_limited',
+    });
+  });
+
+  it.each([
+    [{ email: 'nope', password: 'x' }, { email: 'Enter a valid email address.' }],
+    [{ email: 'a@example.com', password: '' }, { password: 'Enter your password.' }],
+    [{ email: 'a@example.com', password: 'x'.repeat(1025) }, { password: 'Enter your password.' }],
+  ])('returns field errors for %j, unpadded', async (input, fieldErrors) => {
+    const { api, sleeps } = setup();
+    expect(await api.logIn(input, ctx())).toEqual({ kind: 'invalid', fieldErrors });
+    expect(sleeps).toEqual([]);
+  });
+
+  it('treats a short password as just wrong, not as a field error', async () => {
+    const { api } = setup();
+    expect(await api.logIn({ email: newEmail(), password: 'short' }, ctx())).toEqual({
+      kind: 'invalid_credentials',
+    });
+  });
+
+  it('[0001-AC14] rejects a client-supplied userId', async () => {
+    const { api, email, id } = await confirmedUser();
+    expect(await api.logIn({ email, password: PASSWORD, userId: id }, ctx())).toEqual({
+      kind: 'invalid',
+      fieldErrors: {},
+    });
+    expect(await api.getCurrentUser()).toBeNull();
+  });
+
+  it('[0001-AC20] logs outcomes without email or password', async () => {
+    const { api, email, logLines } = await confirmedUser();
+    logLines.length = 0;
+    await api.logIn({ email, password: PASSWORD }, ctx());
+    expect(JSON.parse(logLines[0]!)).toMatchObject({ event: 'users.log_in', outcome: 'logged_in' });
+    expect(logLines.join('\n')).not.toContain(email);
+    expect(logLines.join('\n')).not.toContain(PASSWORD);
+  });
+});
+
+describe('logOut and getCurrentUser', () => {
+  it('[0001-AC10] logOut ends the session and logs it', async () => {
+    const { api, backend, jar, logLines } = setup();
+    const token = await signedUp(api, backend, newEmail());
+    await api.confirmEmail({ tokenHash: token });
+    expect(await api.getCurrentUser()).not.toBeNull();
+
+    await api.logOut();
+    expect(await api.getCurrentUser()).toBeNull();
+    expect(jar.cookies.size).toBe(0);
+    expect(JSON.parse(logLines.at(-1)!)).toMatchObject({ event: 'users.log_out' });
+  });
+
+  it('getCurrentUser is null without a session', async () => {
+    const { api } = setup();
+    expect(await api.getCurrentUser()).toBeNull();
   });
 });

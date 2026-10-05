@@ -7,7 +7,8 @@ export default defineConfig({
   test: {
     include: ['tests/contracts/**/*.test.ts'],
     environment: 'node',
-    // TODO(0001-T7): remove once the first contract suite exists.
-    passWithNoTests: true,
+    // Real implementations run in real time (e.g. 800 ms minimum-duration padding per call).
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

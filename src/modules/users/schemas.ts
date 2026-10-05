@@ -20,3 +20,17 @@ export const passwordSchema = z
 export const signUpInputSchema = z.strictObject({ email: emailSchema, password: passwordSchema });
 
 export const resendInputSchema = z.strictObject({ email: emailSchema });
+
+/** Log-in only checks shape: the sign-up policy would add nothing and could differ from old accounts. */
+export const logInInputSchema = z.strictObject({
+  email: emailSchema,
+  password: z
+    .string()
+    .min(1)
+    .refine((value) => utf8Bytes(value) <= 1024, { error: 'too_long' }),
+});
+
+/** Supabase token hashes (e.g. `pkce_` + hex). Anything else is rejected before Supabase. */
+export const confirmInputSchema = z.strictObject({
+  tokenHash: z.string().regex(/^[A-Za-z0-9_-]{1,200}$/),
+});

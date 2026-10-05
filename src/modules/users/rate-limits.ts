@@ -15,3 +15,10 @@ export const RESEND_LIMIT: RateLimitPolicy = {
   limit: 3,
   windowSeconds: 60 * 60,
 };
+
+export const LOG_IN_LIMIT: RateLimitPolicy = {
+  action: 'login',
+  dimensions: ['ip', 'email'],
+  limit: 5,
+  windowSeconds: 15 * 60,
+};

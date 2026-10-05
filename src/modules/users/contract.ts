@@ -1,6 +1,8 @@
+import type { UserId } from '@/lib/types/ids';
+
 // Public interface of the users module (spec 0001 plan). Other modules and the app depend only
-// on this, via index.ts. No method takes a user ID from input (AC14). Further methods (confirm,
-// log in, log out, current user) are added with 0001-T14.
+// on this, via index.ts. No method takes a user ID from input (AC14): identity comes only from
+// the server-verified session.
 
 /** Derived server-side only. `clientIp` is the trusted-header IP or the shared "unknown" bucket. */
 export type RequestContext = { clientIp: string };
@@ -27,4 +29,27 @@ export interface UsersApi {
     | { kind: 'invalid'; fieldErrors: FieldErrors }
     | { kind: 'rate_limited' }
   >;
+
+  /** Confirms the email from the emailed token hash and signs the user in (AC2, AC5). */
+  confirmEmail(
+    input: unknown /* { tokenHash } */,
+  ): Promise<{ kind: 'confirmed' } | { kind: 'invalid_link' } | { kind: 'rate_limited' }>;
+
+  /** The same outcome for an unknown email and a wrong password (AC7). */
+  logIn(
+    input: unknown,
+    ctx: RequestContext,
+  ): Promise<
+    | { kind: 'logged_in' }
+    | { kind: 'invalid_credentials' }
+    | { kind: 'email_not_confirmed' }
+    | { kind: 'invalid'; fieldErrors: FieldErrors }
+    | { kind: 'rate_limited' }
+  >;
+
+  /** Revokes the session server-side and clears the cookies (AC10). */
+  logOut(): Promise<void>;
+
+  /** Server-verified (auth.getUser), never decoded locally. */
+  getCurrentUser(): Promise<{ id: UserId } | null>;
 }

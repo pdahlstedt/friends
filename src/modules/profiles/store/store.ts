@@ -19,23 +19,7 @@ export interface ProfileStore {
 
   /**
    * User-scoped (RLS applies): the profile if it belongs to the viewer, otherwise null.
-   * Throws `permission_denied` for an anonymous viewer.
+   * Throws ProfilesError `permission_denied` for an anonymous viewer.
    */
   findOwn(userId: UserId): Promise<ProfileRecord | null>;
-}
-
-export type ProfileStoreErrorCode =
-  /** The viewer may not read profiles at all (anonymous). */
-  | 'permission_denied'
-  /** No auth user with this ID. */
-  | 'user_not_found'
-  /** Anything else from the database or network. */
-  | 'unavailable';
-
-/** Carries a code only: vendor messages can contain personal data and never leave the store. */
-export class ProfileStoreError extends Error {
-  constructor(readonly code: ProfileStoreErrorCode) {
-    super(`Profile store error: ${code}`);
-    this.name = 'ProfileStoreError';
-  }
 }

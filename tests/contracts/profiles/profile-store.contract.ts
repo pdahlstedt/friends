@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { UserId } from '@/lib/types/ids';
-import { ProfileStoreError, type ProfileStore } from '@/modules/profiles/store/store';
+import { ProfilesError } from '@/modules/profiles/errors';
+import type { ProfileStore } from '@/modules/profiles/store/store';
 
 // Shared ProfileStore contract (spec 0001, AC11 and AC13). Runs against memory.ts and
 // real/supabase.ts, so the fake used in unit tests behaves like Postgres + RLS.
@@ -20,8 +21,8 @@ async function expectStoreError(promise: Promise<unknown>, code: string) {
     () => undefined,
     (e: unknown) => e,
   );
-  expect(error).toBeInstanceOf(ProfileStoreError);
-  expect((error as ProfileStoreError).code).toBe(code);
+  expect(error).toBeInstanceOf(ProfilesError);
+  expect((error as ProfilesError).code).toBe(code);
 }
 
 export function profileStoreContract(

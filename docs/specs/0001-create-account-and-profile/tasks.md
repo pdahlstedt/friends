@@ -15,7 +15,7 @@ Format: `- [ ] Tn — <description> (AC refs) — <commit type>(<scope>)`
 
 - [x] T6 — Migration `profiles` schema and table with RLS and grants. RLS tests for select/insert/update/delete × anon, own user, other user. Generated DB types. (AC13) — feat(profiles)
 - [x] T7 — `ProfileStore` interface, `memory.ts` fake, Supabase `real/` implementation (user-scoped read; service-role `insertIfMissing`), and a contract suite run against both. (AC11, AC13) — feat(profiles)
-- [ ] T8 — `ProfilesApi` (`contract.ts`, `index.ts`): `ensureProfile` (idempotent) and `getOwnProfile`. Unit tests at 100%, plus a module contract suite (fake-wired and real-wired). (AC11, AC13) — feat(profiles)
+- [x] T8 — `ProfilesApi` (`contract.ts`, `index.ts`): `ensureProfile` (idempotent) and `getOwnProfile`. Unit tests at 100%, plus a module contract suite (fake-wired and real-wired). (AC11, AC13) — feat(profiles)
 
 ## Rate limiting (ADR-0005)
 

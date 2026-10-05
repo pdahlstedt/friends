@@ -1,7 +1,8 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/db/types.generated';
 import { toUserId } from '@/lib/types/ids';
-import { ProfileStoreError, type ProfileStore, type ProfileStoreErrorCode } from '../store';
+import { ProfilesError, type ProfilesErrorCode } from '../../errors';
+import type { ProfileStore } from '../store';
 
 // Supabase ProfileStore (ADR-0004). Excluded from unit coverage; verified by
 // tests/contracts/profiles/profile-store.supabase.test.ts against local Supabase.
@@ -14,14 +15,14 @@ export type SupabaseProfileStoreClients = {
 };
 
 // Postgres SQLSTATEs we translate; anything else is `unavailable`.
-const ERROR_CODES: Record<string, ProfileStoreErrorCode> = {
+const ERROR_CODES: Record<string, ProfilesErrorCode> = {
   '42501': 'permission_denied', // insufficient_privilege
   '23503': 'user_not_found', // foreign_key_violation on auth.users
 };
 
-function storeError(error: PostgrestError): ProfileStoreError {
+function storeError(error: PostgrestError): ProfilesError {
   // Never pass error.message/details on: they can contain row values.
-  return new ProfileStoreError(ERROR_CODES[error.code] ?? 'unavailable');
+  return new ProfilesError(ERROR_CODES[error.code] ?? 'unavailable');
 }
 
 export function createSupabaseProfileStore({

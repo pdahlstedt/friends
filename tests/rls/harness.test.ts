@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { anonClient, createTestUser, deleteTestUser, type TestUser } from './support/roles';
+import { anonClient, createTestUser, deleteTestUser, type TestUser } from '../support/roles';
 
 // Sanity checks for the RLS harness itself: if these fail, every RLS result is meaningless.
 describe('RLS harness role clients', () => {

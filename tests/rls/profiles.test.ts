@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db } from './support/db';
 import {
@@ -6,15 +5,16 @@ import {
   createTestUser,
   deleteTestUser,
   serviceClient,
+  type DbClient,
   type TestUser,
-} from './support/roles';
+} from '../support/roles';
 
 // Spec 0001, AC13 and AC18: profiles.profiles access per role (plan, "RLS policies").
 // anon: nothing. Own user: select only. Other user: nothing. Writes only via service_role.
 
 const PERMISSION_DENIED = '42501';
 
-const profiles = (client: SupabaseClient) => client.schema('profiles').from('profiles');
+const profiles = (client: DbClient) => client.schema('profiles').from('profiles');
 
 type ProfileRow = { user_id: string; created_at: string; updated_at: string };
 

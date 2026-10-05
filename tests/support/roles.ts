@@ -1,26 +1,30 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { localSupabase } from '../../support/local-supabase';
+import type { Database } from '@/lib/db/types.generated';
+import { localSupabase } from './local-supabase';
 
-// Role clients for RLS tests. Every request goes through PostgREST with a real JWT,
+// Role clients for RLS and contract tests. Every request goes through PostgREST with a real JWT,
 // exactly like production traffic, so policies and grants are tested together.
 // Moderator and admin roles do not exist yet (spec 0001); they are added in Release 1.
 
-export type TestUser = { id: string; client: SupabaseClient };
+// Typed with the generated schema, like the app's clients, so test queries are type-checked too.
+export type DbClient = SupabaseClient<Database>;
+
+export type TestUser = { id: string; client: DbClient };
 
 const noPersistence = {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 } as const;
 
-export function anonClient(): SupabaseClient {
+export function anonClient(): DbClient {
   const { apiUrl, anonKey } = localSupabase();
-  return createClient(apiUrl, anonKey, noPersistence);
+  return createClient<Database>(apiUrl, anonKey, noPersistence);
 }
 
 /** Bypasses RLS. Only for arranging and cleaning up test data — never for assertions about access. */
-export function serviceClient(): SupabaseClient {
+export function serviceClient(): DbClient {
   const { apiUrl, serviceRoleKey } = localSupabase();
-  return createClient(apiUrl, serviceRoleKey, noPersistence);
+  return createClient<Database>(apiUrl, serviceRoleKey, noPersistence);
 }
 
 /** Creates a confirmed user with a random email and password, signed in on its own client. */

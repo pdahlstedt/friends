@@ -53,6 +53,8 @@ objectStorageContract(async () => new InMemoryObjectStorage());
 objectStorageContract(async () => createSupabaseObjectStorage(testClient));
 ```
 
+Name the fake run `*.fake.test.ts`: `pnpm test` includes those files, so each in-memory fake gets its unit coverage from the same suite the real implementation must pass, with no stack needed. `pnpm test:contracts` runs both.
+
 This guarantees fakes used in unit tests behave like the real thing, and makes vendor swaps safe. Module public APIs (`contract.ts`) get the same treatment — this is also what makes a later extraction to a service verifiable.
 
 ## RLS tests

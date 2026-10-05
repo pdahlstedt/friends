@@ -8,6 +8,7 @@ export const PUBLIC_PAGES = [
   '/auth/invalid-link',
   '/login',
   '/logout',
+  '/me', // redirects anonymous visitors to /login; both responses are checked
 ] as const;
 
 // A route that does not exist: the 404 page is HTML too and must carry the same headers.

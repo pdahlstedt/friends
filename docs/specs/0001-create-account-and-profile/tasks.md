@@ -32,7 +32,7 @@ Format: `- [ ] Tn — <description> (AC refs) — <commit type>(<scope>)`
 ## UI and end to end
 
 - [x] T15 — Composition root `src/server/container.ts`. Pages and actions: `/signup`, `/signup/check-email`, `/auth/confirm` (GET shows the button, POST confirms), `/auth/invalid-link` with resend. Mobile-first, labelled forms. System tests `[0001-AC1]`, `[0001-AC2]`, AC3, AC4 and AC5. (AC1–AC5) — feat(users)
-- [ ] T16 — `/login` (with "verify your email" plus resend for unconfirmed accounts) and POST `/logout`. System tests `[0001-AC6]`, `[0001-AC7]`, `[0001-AC10]`, AC8, AC9 (per-test `X-Forwarded-For`) and AC17 cookie flags. (AC6–AC10, AC17) — feat(users)
+- [x] T16 — `/login` (with "verify your email" plus resend for unconfirmed accounts) and POST `/logout`. System tests `[0001-AC6]`, `[0001-AC7]`, `[0001-AC10]`, AC8, AC9 (per-test `X-Forwarded-For`) and AC17 cookie flags. (AC6–AC10, AC17) — feat(users)
 - [ ] T17 — `/me` own-profile page with empty state and a redirect for anonymous visitors. System tests `[0001-AC11]` and AC12. (AC11, AC12) — feat(profiles)
 - [ ] T18 — Responsive and labelling checks: Playwright projects at 360 px, tablet and desktop running the full journey (no horizontal scroll; controls found by label and role) as `[0001-AC15]`. A system test scanning the captured server log for each test's email, password and tokens. (AC15, AC20) — test(system)
 

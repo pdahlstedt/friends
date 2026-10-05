@@ -6,6 +6,8 @@ export const PUBLIC_PAGES = [
   '/signup/check-email',
   '/auth/confirm?token_hash=not-a-real-token',
   '/auth/invalid-link',
+  '/login',
+  '/logout',
 ] as const;
 
 // A route that does not exist: the 404 page is HTML too and must carry the same headers.

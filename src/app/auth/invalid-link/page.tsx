@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { PageShell } from '@/app/_components/form';
-import { ResendForm } from './resend-form';
+import { ResendForm } from '@/app/_components/resend-form';
 
 export const metadata: Metadata = { title: 'Link invalid or expired · Friends' };
 

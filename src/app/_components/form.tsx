@@ -15,12 +15,15 @@ export const RATE_LIMITED_MESSAGE = 'Too many attempts. Please try again later.'
 
 export function TextField({
   name,
+  id = name,
   label,
   type,
   autoComplete,
   error,
   defaultValue,
 }: {
+  /** Defaults to `name`; set it when two forms on one page share a field name. */
+  id?: string;
   name: 'email' | 'password';
   label: string;
   type: 'email' | 'password';
@@ -28,14 +31,14 @@ export function TextField({
   error?: string | undefined;
   defaultValue?: string | undefined;
 }) {
-  const errorId = `${name}-error`;
+  const errorId = `${id}-error`;
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={name} className="font-medium">
+      <label htmlFor={id} className="font-medium">
         {label}
       </label>
       <input
-        id={name}
+        id={id}
         name={name}
         type={type}
         autoComplete={autoComplete}

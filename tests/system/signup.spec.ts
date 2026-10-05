@@ -1,16 +1,9 @@
 import { setTimeout as sleep } from 'node:timers/promises';
-import type { Page } from '@playwright/test';
 import { verificationTokens, waitForVerificationToken } from '../support/mailpit';
 import { PASSWORD, expect, test } from './support/fixtures';
+import { signUp } from './support/flows';
 
 // Spec 0001: sign-up and email verification, end to end (AC1–AC5).
-
-async function signUp(page: Page, email: string, password = PASSWORD) {
-  await page.goto('/signup');
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Create account' }).click();
-}
 
 test('[0001-AC1] a visitor signs up and is asked to check their email', async ({ page, email }) => {
   await signUp(page, email);

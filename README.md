@@ -87,5 +87,7 @@ pnpm exec vitest run --config vitest.rls.config.ts tests/rls/profiles.test.ts
 pnpm exec playwright test tests/system/security-headers.spec.ts -g "nonce"
 ```
 
-The first Playwright run needs a browser: `pnpm exec playwright install chromium`. The server log
-of a system test run is written to `logs/server.log`.
+The first Playwright run needs a browser: `pnpm exec playwright install chromium`. System tests
+start their own production server on port 3100 (so a running `pnpm dev` on 3000 is unaffected),
+with the env taken from `supabase status`, a fresh rate-limit secret and `X-Forwarded-For` as the
+trusted IP header. Its log is written to `logs/server.log`.

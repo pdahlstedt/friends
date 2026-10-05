@@ -26,7 +26,7 @@ Format: `- [ ] Tn — <description> (AC refs) — <commit type>(<scope>)`
 ## Auth adapter and users module
 
 - [x] T12 — `AuthProvider` adapter: interface; fake with issued tokens; Supabase `real/` implementation on `@supabase/ssr` with hardened cookie options (`HttpOnly`, `SameSite=Lax`, `Secure` in production) and mapping of Supabase errors and 429s; a Mailpit test helper. Contract suite against the fake and local Supabase. Unit tests for cookie options. (AC1, AC2, AC4–AC8, AC10, AC17) — feat(adapters)
-- [ ] T13 — `users`: strict Zod schemas (email; password of 12–72 UTF-8 bytes; unknown keys rejected); `signUp` and `resendVerification` with rate-limit checks first, enumeration-equal outcomes and minimum duration. Unit tests at 100%. (AC1, AC3, AC4, AC9, AC14) — feat(users)
+- [x] T13 — `users`: strict Zod schemas (email; password of 12–72 UTF-8 bytes; unknown keys rejected); `signUp` and `resendVerification` with rate-limit checks first, enumeration-equal outcomes and minimum duration. Unit tests at 100%. (AC1, AC3, AC4, AC9, AC14) — feat(users)
 - [ ] T14 — `users`: `confirmEmail`, `logIn`, `logOut`, `getCurrentUser`; `ensureProfile` after confirm and log-in. Unit tests at 100%. `UsersApi` module contract suite (fake-wired and real-wired). (AC2, AC5–AC8, AC10, AC14) — feat(users)
 
 ## UI and end to end

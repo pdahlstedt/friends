@@ -7,7 +7,7 @@ Format: `- [ ] Tn — <description> (AC refs) — <commit type>(<scope>)`
 
 - [x] T1 — `lib/rate-limit`: a `user` dimension in the policy helper (HMAC'd user ID, ADR-0005). Unit tests at 100%. (AC7) — feat(lib)
 - [x] T2 — Migration `users_account_erasure`: `users` schema, `erase_auth_audit(uuid)` and `sweep_auth_audit()` (security definer, service_role only), daily `pg_cron` sweep; `users` added to `[api] schemas` and `pnpm db:types`. Move the superuser `db()` to `tests/support/db.ts`. RLS/catalog tests: execute privileges per role, sweep behaviour, cron job scheduled, and the ADR-0006 check that every user column has a FK to `auth.users ON DELETE CASCADE`. (AC4, AC12) — feat(users)
-- [ ] T3 — `UserAccountStore`: interface, `memory.ts` fake, Supabase `real/` implementation (RPC through the service-role client), and a contract suite run against both (the real side arranges audit entries through the admin API). (AC4) — feat(users)
+- [x] T3 — `UserAccountStore`: interface, `memory.ts` fake, Supabase `real/` implementation (RPC through the service-role client), and a contract suite run against both (the real side arranges audit entries through the admin API). (AC4) — feat(users)
 
 ## Auth adapter and users module
 

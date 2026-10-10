@@ -88,6 +88,29 @@ describe('checkRateLimit', () => {
     expect((await check('192.0.2.9', 'three@example.com')).allowed).toBe(false);
   });
 
+  it('[0002-AC7] limits per user ID across IPs, with the ID hashed as given', async () => {
+    const deleteAccount: RateLimitPolicy = {
+      action: 'delete_account',
+      dimensions: ['ip', 'user'],
+      limit: 2,
+      windowSeconds: 900,
+    };
+    const userId = '0b7e1c2a-4f6d-4c1e-9a3b-2d5f8e7c6a10';
+    const { limiter, calls } = spyLimiter();
+    await checkRateLimit({ limiter, secret }, deleteAccount, { ip: '192.0.2.1', user: userId });
+    expect(calls.map((c) => c.key)).toEqual([
+      rateLimitKey(secret, 'delete_account', 'ip', '192.0.2.1'),
+      rateLimitKey(secret, 'delete_account', 'user', userId),
+    ]);
+
+    // Same user from rotating IPs: the user dimension stops it.
+    const deps = { limiter: createFakeRateLimiter(), secret };
+    const check = (ip: string) => checkRateLimit(deps, deleteAccount, { ip, user: userId });
+    expect((await check('198.51.100.1')).allowed).toBe(true);
+    expect((await check('198.51.100.2')).allowed).toBe(true);
+    expect((await check('198.51.100.3')).allowed).toBe(false);
+  });
+
   it('only checks the dimensions the policy names', async () => {
     const { limiter, calls } = spyLimiter();
     await checkRateLimit(

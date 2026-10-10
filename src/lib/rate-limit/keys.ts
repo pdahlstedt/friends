@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 
 // Rate-limit bucket keys (ADR-0005): HMAC-SHA256(secret, "<action>:<dimension>:<value>").
-// Only the digest reaches the database; raw emails and IPs are never stored.
+// Only the digest reaches the database; raw emails, IPs and user IDs are never stored.
 
 const NAME = /^[a-z][a-z0-9_]*$/;
 

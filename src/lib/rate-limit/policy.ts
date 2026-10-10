@@ -4,7 +4,8 @@ import { normalizeEmail, rateLimitKey } from './keys';
 // Declarative rate-limit rules (ADR-0005). Modules define policies as code-reviewed constants;
 // this helper applies one policy to every dimension it names.
 
-export type RateLimitDimension = 'ip' | 'email';
+/** `user` is the server-verified user ID (never client input), e.g. for re-authentication. */
+export type RateLimitDimension = 'ip' | 'email' | 'user';
 
 export type RateLimitPolicy = {
   /** Lower-case name, e.g. "login". Part of the key. */

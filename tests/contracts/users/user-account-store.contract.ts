@@ -9,11 +9,11 @@ export type AccountRef = { id: UserId; email: string };
 
 export type UserAccountStoreHarness = {
   store: UserAccountStore;
-  /** An existing user with some audit history (sign-up, log-in). */
+  /** An existing user with auth history (sign-up, log-in): audit entries and a flow state. */
   activeUser(): Promise<AccountRef>;
   /** A user with audit history who has been deleted (adding a user_deleted entry with the email). */
   deletedUser(): Promise<AccountRef>;
-  /** Number of audit entries that mention the user's ID or email. */
+  /** Number of leftover rows (audit entries, flow states) that mention the user's ID or email. */
   entriesAbout(account: AccountRef): Promise<number>;
   unknownUserId(): UserId;
   cleanup(): Promise<void>;
@@ -34,31 +34,31 @@ export function userAccountStoreContract(
       await h?.cleanup();
     });
 
-    it('[0002-AC4] erases every audit entry about a deleted user, by ID and by email', async () => {
+    it('[0002-AC4] erases every leftover about a deleted user, by ID and by email', async () => {
       const gone = await h.deletedUser();
       expect(await h.entriesAbout(gone)).toBeGreaterThan(0);
 
-      await h.store.eraseAuthAuditEntries(gone.id);
+      await h.store.eraseAuthLeftovers(gone.id);
 
       expect(await h.entriesAbout(gone)).toBe(0);
     });
 
-    it('keeps the entries of other users', async () => {
+    it('keeps the leftovers of other users', async () => {
       const other = await h.activeUser();
       const gone = await h.deletedUser();
       const before = await h.entriesAbout(other);
       expect(before).toBeGreaterThan(0);
 
-      await h.store.eraseAuthAuditEntries(gone.id);
+      await h.store.eraseAuthLeftovers(gone.id);
 
       expect(await h.entriesAbout(other)).toBe(before);
     });
 
     it('[0002-AC12] is idempotent and accepts an ID with no entries', async () => {
       const gone = await h.deletedUser();
-      await h.store.eraseAuthAuditEntries(gone.id);
-      await expect(h.store.eraseAuthAuditEntries(gone.id)).resolves.toBeUndefined();
-      await expect(h.store.eraseAuthAuditEntries(h.unknownUserId())).resolves.toBeUndefined();
+      await h.store.eraseAuthLeftovers(gone.id);
+      await expect(h.store.eraseAuthLeftovers(gone.id)).resolves.toBeUndefined();
+      await expect(h.store.eraseAuthLeftovers(h.unknownUserId())).resolves.toBeUndefined();
       expect(await h.entriesAbout(gone)).toBe(0);
     });
   });

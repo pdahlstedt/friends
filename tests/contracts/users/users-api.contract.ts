@@ -15,6 +15,8 @@ export type UsersApiHarness = {
   nextToken(email: string, alreadySeen: number): Promise<string>;
   profileExists(userId: UserId): Promise<boolean>;
   deleteProfile(userId: UserId): Promise<void>;
+  /** Where anything about the user is still stored ("schema.table" or fake store names). */
+  storedAbout(userId: UserId, email: string): Promise<string[]>;
   cleanup(): Promise<void>;
 };
 
@@ -138,6 +140,84 @@ export function usersApiContract(name: string, makeHarness: () => Promise<UsersA
         fieldErrors: {},
       });
       expect(await api.getCurrentUser()).toBeNull();
+    });
+
+    describe('deleteAccount (spec 0002)', () => {
+      it('[0002-AC2] [0002-AC4] deletes the account and everything about it, and signs out', async () => {
+        const { email, id, jar } = await confirmed();
+        expect(await h.storedAbout(id, email)).not.toEqual([]);
+
+        expect(await h.apiFor(jar).deleteAccount({ password: PASSWORD }, ctx())).toEqual({
+          kind: 'deleted',
+        });
+
+        expect(await h.apiFor(jar).getCurrentUser()).toBeNull();
+        expect(await h.profileExists(id)).toBe(false);
+        expect(await h.storedAbout(id, email)).toEqual([]);
+      });
+
+      it('[0002-AC3] [0002-AC5] afterwards the email is unknown, and can sign up as a new account', async () => {
+        const { email, id, jar } = await confirmed();
+        await h.apiFor(jar).deleteAccount({ password: PASSWORD }, ctx());
+
+        const api = h.apiFor(createTestCookieJar());
+        const unknown = await api.logIn({ email: newEmail(), password: PASSWORD }, ctx());
+        expect(await api.logIn({ email, password: PASSWORD }, ctx())).toEqual(unknown);
+
+        const again = await confirmed(email);
+        expect(again.id).not.toBe(id);
+        expect(await h.profileExists(again.id)).toBe(true);
+      });
+
+      it('[0002-AC6] a wrong password deletes nothing and keeps the session', async () => {
+        const { id, jar } = await confirmed();
+        const api = h.apiFor(jar);
+        expect(await api.deleteAccount({ password: 'not the password' }, ctx())).toEqual({
+          kind: 'wrong_password',
+        });
+        expect(await api.getCurrentUser()).toEqual({ id });
+        expect(await h.profileExists(id)).toBe(true);
+      });
+
+      it('[0002-AC7] after 5 attempts, even the right password is rate-limited', async () => {
+        const { id, jar } = await confirmed();
+        const api = h.apiFor(jar);
+        for (let i = 0; i < 5; i++) await api.deleteAccount({ password: `wrong ${i}` }, ctx());
+        expect(await api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({
+          kind: 'rate_limited',
+        });
+        expect(await api.getCurrentUser()).toEqual({ id });
+      });
+
+      it('[0002-AC8] without a session nothing happens', async () => {
+        expect(
+          await h.apiFor(createTestCookieJar()).deleteAccount({ password: PASSWORD }, ctx()),
+        ).toEqual({ kind: 'not_signed_in' });
+      });
+
+      it('[0002-AC9] another user named in the input is never affected', async () => {
+        const victim = await confirmed();
+        const attacker = await confirmed();
+        const api = h.apiFor(attacker.jar);
+        expect(await api.deleteAccount({ password: PASSWORD, userId: victim.id }, ctx())).toEqual({
+          kind: 'wrong_password',
+        });
+        expect(await api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({
+          kind: 'deleted',
+        });
+        expect(await h.apiFor(victim.jar).getCurrentUser()).toEqual({ id: victim.id });
+        expect(await h.profileExists(victim.id)).toBe(true);
+      });
+
+      it('[0002-AC11] the session on another device stops working at once', async () => {
+        const { email, jar } = await confirmed();
+        const other = createTestCookieJar();
+        await h.apiFor(other).logIn({ email, password: PASSWORD }, ctx());
+
+        await h.apiFor(jar).deleteAccount({ password: PASSWORD }, ctx());
+
+        expect(await h.apiFor(other).getCurrentUser()).toBeNull();
+      });
     });
   });
 }

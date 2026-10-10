@@ -86,8 +86,8 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      erase_auth_audit: { Args: { p_user_id: string }; Returns: undefined };
-      sweep_auth_audit: { Args: Record<PropertyKey, never>; Returns: undefined };
+      erase_auth_leftovers: { Args: { p_user_id: string }; Returns: undefined };
+      sweep_auth_leftovers: { Args: Record<PropertyKey, never>; Returns: undefined };
     };
     Enums: {
       [_ in never]: never;

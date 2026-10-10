@@ -2,10 +2,11 @@ import { randomBytes } from 'node:crypto';
 import { createSupabaseAuth } from '@/lib/adapters/auth/real/supabase';
 import { createPostgresRateLimiter } from '@/lib/adapters/rate-limit/real/postgres';
 import { createProfilesApi, createSupabaseProfileStore } from '@/modules/profiles';
-import { createUsersApi } from '@/modules/users';
+import { createSupabaseUserAccountStore, createUsersApi } from '@/modules/users';
 import { db, closeDb } from '../../support/db';
 import { localSupabase } from '../../support/local-supabase';
 import { waitForVerificationToken } from '../../support/mailpit';
+import { tablesMentioning } from '../../support/residue';
 import { serviceClient } from '../../support/roles';
 import { usersApiContract } from './users-api.contract';
 
@@ -30,7 +31,8 @@ usersApiContract('real-wired', async () => {
       const profiles = createProfilesApi({
         store: createSupabaseProfileStore({ userClient, serviceClient: service }),
       });
-      return createUsersApi({ auth, profiles, limiter, rateLimitSecret });
+      const accounts = createSupabaseUserAccountStore({ serviceClient: service });
+      return createUsersApi({ auth, profiles, accounts, limiter, rateLimitSecret });
     },
     nextToken: (email, alreadySeen) => waitForVerificationToken(email, alreadySeen),
     // Superuser checks: the service role deliberately cannot delete profiles.
@@ -41,6 +43,8 @@ usersApiContract('real-wired', async () => {
     deleteProfile: async (userId) => {
       await db()`delete from profiles.profiles where user_id = ${userId}`;
     },
+    // AC4: every table in the database, Supabase's own schemas included.
+    storedAbout: (userId, email) => tablesMentioning(userId, email),
     cleanup: async () => {
       const admin = service.auth.admin;
       const { data } = await admin.listUsers({ perPage: 1000 });

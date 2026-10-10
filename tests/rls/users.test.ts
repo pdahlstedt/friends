@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { authLeftoversAbout, createUserWithAuthHistory } from '../support/auth-history';
 import { closeDb, db } from '../support/db';
 import {
   anonClient,
@@ -10,15 +11,15 @@ import {
   type TestUser,
 } from '../support/roles';
 
-// Spec 0002 / ADR-0006: the users schema's audit-log erase and sweep are server-only.
+// Spec 0002 / ADR-0006: the users schema's erase and sweep of Auth leftovers are server-only.
 // anon and authenticated are denied; only service_role may call them.
 
 const PERMISSION_DENIED = '42501';
-const FUNCTIONS = ['users.erase_auth_audit(uuid)', 'users.sweep_auth_audit()'];
+const FUNCTIONS = ['users.erase_auth_leftovers(uuid)', 'users.sweep_auth_leftovers()'];
 
 const erase = (client: DbClient, userId: string) =>
-  client.schema('users').rpc('erase_auth_audit', { p_user_id: userId });
-const sweep = (client: DbClient) => client.schema('users').rpc('sweep_auth_audit');
+  client.schema('users').rpc('erase_auth_leftovers', { p_user_id: userId });
+const sweep = (client: DbClient) => client.schema('users').rpc('sweep_auth_leftovers');
 
 /** Audit entries that mention `userId` anywhere (actor or subject). Read-only check. */
 async function auditEntriesAbout(userId: string): Promise<number> {
@@ -28,7 +29,7 @@ async function auditEntriesAbout(userId: string): Promise<number> {
   return row!.n;
 }
 
-describe('[0002-AC4] users schema privileges and audit-log clean-up', () => {
+describe('[0002-AC4] users schema privileges and clean-up of Auth leftovers', () => {
   let user: TestUser;
 
   beforeAll(async () => {
@@ -45,7 +46,7 @@ describe('[0002-AC4] users schema privileges and audit-log clean-up', () => {
     ['authenticated', () => user.client],
   ] as const) {
     describe(role, () => {
-      it('cannot erase audit entries, not even its own', async () => {
+      it('cannot erase Auth leftovers, not even its own', async () => {
         const before = await auditEntriesAbout(user.id);
         expect(before).toBeGreaterThan(0);
         const { error } = await erase(client(), user.id);
@@ -66,16 +67,19 @@ describe('[0002-AC4] users schema privileges and audit-log clean-up', () => {
       expect((await sweep(serviceClient())).error).toBeNull();
     });
 
-    it('the sweep removes entries about deleted users and keeps those of existing users', async () => {
-      const deleted = await createTestUser();
-      await deleteTestUser(deleted); // adds a user_deleted entry carrying the email
-      expect(await auditEntriesAbout(deleted.id)).toBeGreaterThan(0);
-      const keptBefore = await auditEntriesAbout(user.id);
+    it('the sweep removes leftovers about deleted users and keeps those of existing users', async () => {
+      const kept = await createUserWithAuthHistory();
+      const deleted = await createUserWithAuthHistory();
+      const { error } = await serviceClient().auth.admin.deleteUser(deleted.id);
+      if (error) throw new Error(`arrange failed: ${error.message}`);
+      expect(await authLeftoversAbout(deleted)).toBeGreaterThan(0);
+      const keptBefore = await authLeftoversAbout(kept);
 
       expect((await sweep(serviceClient())).error).toBeNull();
 
-      expect(await auditEntriesAbout(deleted.id)).toBe(0);
-      expect(await auditEntriesAbout(user.id)).toBe(keptBefore);
+      expect(await authLeftoversAbout(deleted)).toBe(0);
+      expect(await authLeftoversAbout(kept)).toBe(keptBefore);
+      await serviceClient().auth.admin.deleteUser(kept.id);
     });
   });
 
@@ -118,9 +122,9 @@ describe('[0002-AC4] users schema privileges and audit-log clean-up', () => {
 
     it('schedules the daily sweep', async () => {
       const jobs = await db()<{ schedule: string; command: string }[]>`
-        select schedule, command from cron.job where jobname = 'users-sweep-auth-audit'`;
+        select schedule, command from cron.job where jobname = 'users-sweep-auth-leftovers'`;
       expect(jobs).toEqual([
-        { schedule: '17 3 * * *', command: 'select users.sweep_auth_audit()' },
+        { schedule: '17 3 * * *', command: 'select users.sweep_auth_leftovers()' },
       ]);
     });
   });

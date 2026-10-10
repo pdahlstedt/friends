@@ -2,24 +2,25 @@ import type { UserId } from '@/lib/types/ids';
 import { UsersError } from '../errors';
 import type { UserAccountStore } from './store';
 
-// In-memory UserAccountStore for unit tests. Mirrors auth.audit_log_entries and
-// users.erase_auth_audit: entries are about a user as actor or subject and may carry an email.
+// In-memory UserAccountStore for unit tests. Mirrors what Supabase Auth keeps outside
+// auth.users (audit-log entries, PKCE flow states) and users.erase_auth_leftovers: each row is
+// about a user and may carry an email.
 
-export type MemoryAuditEntry = { action: string; userId: UserId; email?: string };
+export type MemoryAuthLeftover = { action: string; userId: UserId; email?: string };
 
-export type MemoryAuditLog = {
-  entries: MemoryAuditEntry[];
+export type MemoryAuthLeftovers = {
+  entries: MemoryAuthLeftover[];
   /** When true, every call fails as if the database were unreachable. */
   unavailable: boolean;
 };
 
-export function createMemoryAuditLog(): MemoryAuditLog {
+export function createMemoryAuthLeftovers(): MemoryAuthLeftovers {
   return { entries: [], unavailable: false };
 }
 
-export function createMemoryUserAccountStore(log: MemoryAuditLog): UserAccountStore {
+export function createMemoryUserAccountStore(log: MemoryAuthLeftovers): UserAccountStore {
   return {
-    async eraseAuthAuditEntries(userId) {
+    async eraseAuthLeftovers(userId) {
       if (log.unavailable) throw new UsersError('unavailable');
       const emails = new Set(
         log.entries

@@ -52,4 +52,20 @@ export interface UsersApi {
 
   /** Server-verified (auth.getUser), never decoded locally. */
   getCurrentUser(): Promise<{ id: UserId } | null>;
+
+  /**
+   * Deletes the signed-in user's account and all their data, then ends this session (spec 0002,
+   * ADR-0006). Identity comes only from the session; `input` is `{ password }`, validated inside.
+   * `failed` means nothing was deleted and a retry is safe (AC12).
+   */
+  deleteAccount(
+    input: unknown,
+    ctx: RequestContext,
+  ): Promise<
+    | { kind: 'deleted' }
+    | { kind: 'not_signed_in' }
+    | { kind: 'wrong_password' }
+    | { kind: 'rate_limited' }
+    | { kind: 'failed' }
+  >;
 }

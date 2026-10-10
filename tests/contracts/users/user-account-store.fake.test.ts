@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { toUserId } from '@/lib/types/ids';
-import { createMemoryAuditLog, createMemoryUserAccountStore } from '@/modules/users/store/memory';
+import {
+  createMemoryAuthLeftovers,
+  createMemoryUserAccountStore,
+} from '@/modules/users/store/memory';
 import { userAccountStoreContract, type AccountRef } from './user-account-store.contract';
 
 userAccountStoreContract('memory', async () => {
-  const log = createMemoryAuditLog();
+  const log = createMemoryAuthLeftovers();
 
   // The entries Supabase Auth writes: sign-up and log-in carry the email; so does user_deleted.
   const withHistory = (): AccountRef => {
@@ -13,6 +16,7 @@ userAccountStoreContract('memory', async () => {
       { action: 'user_signedup', userId: account.id, email: account.email },
       { action: 'login', userId: account.id, email: account.email },
       { action: 'token_refreshed', userId: account.id },
+      { action: 'flow_state', userId: account.id },
     );
     return account;
   };

@@ -7,7 +7,7 @@ import type { UserAccountStore } from '../store';
 // tests/contracts/users/user-account-store.supabase.test.ts against local Supabase.
 
 export type SupabaseUserAccountStoreClients = {
-  /** Service role. users.erase_auth_audit is executable by nobody else. */
+  /** Service role. users.erase_auth_leftovers is executable by nobody else. */
   serviceClient: SupabaseClient<Database>;
 };
 
@@ -15,10 +15,10 @@ export function createSupabaseUserAccountStore({
   serviceClient,
 }: SupabaseUserAccountStoreClients): UserAccountStore {
   return {
-    async eraseAuthAuditEntries(userId) {
+    async eraseAuthLeftovers(userId) {
       const { error } = await serviceClient
         .schema('users')
-        .rpc('erase_auth_audit', { p_user_id: userId });
+        .rpc('erase_auth_leftovers', { p_user_id: userId });
       // Never pass error.message/details on: they can contain row values.
       if (error) throw new UsersError('unavailable');
     },

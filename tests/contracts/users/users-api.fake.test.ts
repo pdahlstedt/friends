@@ -4,6 +4,10 @@ import type { UserId } from '@/lib/types/ids';
 import { createProfilesApi } from '@/modules/profiles';
 import { createMemoryProfileDb, createMemoryProfileStore } from '@/modules/profiles/store/memory';
 import { createUsersApi } from '@/modules/users';
+import {
+  createMemoryAuthLeftovers,
+  createMemoryUserAccountStore,
+} from '@/modules/users/store/memory';
 import { usersApiContract } from './users-api.contract';
 
 usersApiContract('fake-wired', async () => {
@@ -12,6 +16,9 @@ usersApiContract('fake-wired', async () => {
   // The profile table's FK to auth users: point the memory store at the fake auth backend.
   const authUsers = { has: (id: UserId) => [...backend.users.values()].some((u) => u.id === id) };
   const db = { ...profileDb, users: authUsers as unknown as Set<UserId> };
+  // ON DELETE CASCADE (ADR-0006): deleting the auth user removes the profile row.
+  backend.onUserDeleted.add((userId) => profileDb.rows.delete(userId));
+  const auditLog = createMemoryAuthLeftovers();
   const limiter = createFakeRateLimiter();
   const instant = { now: () => 0, sleep: async () => {} };
 
@@ -20,6 +27,7 @@ usersApiContract('fake-wired', async () => {
       createUsersApi({
         auth: createFakeAuthProvider(backend, { cookies: jar, secureCookies: true }),
         profiles: createProfilesApi({ store: createMemoryProfileStore(db, null) }),
+        accounts: createMemoryUserAccountStore(auditLog),
         limiter,
         rateLimitSecret: 'f'.repeat(32),
         clock: instant,
@@ -33,6 +41,18 @@ usersApiContract('fake-wired', async () => {
     deleteProfile: async (userId) => {
       profileDb.rows.delete(userId);
     },
+    storedAbout: async (userId, email) =>
+      [
+        [
+          'auth users',
+          [...backend.users.values()].some((u) => u.id === userId || u.email === email),
+        ],
+        ['auth sessions', [...backend.sessions.values()].includes(userId)],
+        ['profiles', profileDb.rows.has(userId)],
+        ['audit log', auditLog.entries.some((e) => e.userId === userId || e.email === email)],
+      ]
+        .filter(([, found]) => found)
+        .map(([name]) => name as string),
     cleanup: async () => {},
   };
 });

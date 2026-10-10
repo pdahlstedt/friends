@@ -74,7 +74,7 @@ jobs:
           for c in $(docker ps -a --filter "name=supabase_" --format '{{.Names}}'); do
             docker logs "$c" > "logs/supabase/$c.log" 2>&1 || true
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: diagnostics

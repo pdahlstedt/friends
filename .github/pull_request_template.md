@@ -1,10 +1,13 @@
 ## Spec
+
 <!-- docs/specs/NNNN-slug — which tasks/ACs this PR covers -->
 
 ## What and why
+
 <!-- Short summary. -->
 
 ## Checklist
+
 - [ ] Implements only behaviour in an approved spec
 - [ ] Every AC covered by tests; traceability table updated
 - [ ] Unit coverage 100% (no new ignores)
@@ -16,7 +19,9 @@
 - [ ] New dependencies justified below
 
 ## Security impact
+
 <!-- None, or: what changed in auth, data access, uploads, payments, admin. -->
 
 ## New dependencies
+
 <!-- None, or name + why + maintenance status. -->

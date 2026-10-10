@@ -1,0 +1,50 @@
+{
+  "name": "friends",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings 0 && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "db:types": "supabase gen types typescript --local --schema profiles,ratelimit | prettier --parser typescript > src/lib/db/types.generated.ts",
+    "test": "vitest run --coverage",
+    "test:rls": "vitest run --config vitest.rls.config.ts",
+    "test:contracts": "vitest run --config vitest.contracts.config.ts",
+    "test:system": "playwright test --pass-with-no-tests",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:rls && pnpm test:contracts && pnpm build && pnpm test:system"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.117.2",
+    "next": "16.3.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "^24.19.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitest/coverage-v8": "5.0.3",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.8",
+    "eslint-plugin-boundaries": "7.2.0",
+    "postgres": "3.4.9",
+    "prettier": "3.9.9",
+    "supabase": "2.119.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "~6.0.3",
+    "vitest": "5.0.3"
+  }
+}

@@ -1,5 +1,8 @@
 name: CI
 
+# Runs the same chain as `pnpm verify`, in the same order (spec 0001, AC19):
+# lint → typecheck → unit → RLS → contracts → build → system.
+
 on:
   pull_request:
   push:
@@ -15,11 +18,12 @@ concurrency:
 jobs:
   static:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
@@ -28,25 +32,54 @@ jobs:
   integration:
     needs: static
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
-      - uses: supabase/setup-cli@v1
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: supabase start
-      - run: supabase db reset # migrations + seed
+
+      # Supabase CLI comes from devDependencies, so CI and local use the same version.
+      # A fresh `start` applies all migrations and supabase/seed.sql.
+      - run: pnpm exec supabase start
+
+      # Local stack connection details (well-known local demo keys, not secrets) for the
+      # test suites and the app server. tests/support/local-supabase.ts reads these and
+      # refuses any non-local host.
+      - name: Export local Supabase env
+        run: |
+          pnpm exec supabase status -o json > "$RUNNER_TEMP/supabase-status.json"
+          jq -r '
+            "SUPABASE_URL=\(.API_URL)",
+            "SUPABASE_DB_URL=\(.DB_URL)",
+            "SUPABASE_ANON_KEY=\(.ANON_KEY)",
+            "SUPABASE_SERVICE_ROLE_KEY=\(.SERVICE_ROLE_KEY)",
+            "MAILPIT_URL=\(.MAILPIT_URL)"
+          ' "$RUNNER_TEMP/supabase-status.json" >> "$GITHUB_ENV"
+          rm "$RUNNER_TEMP/supabase-status.json"
+
       - run: pnpm test:rls
       - run: pnpm test:contracts
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm build
       - run: pnpm test:system
-        env:
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+
+      # Diagnostics on failure. The app server log is written to logs/ by the Playwright
+      # webServer (0001-T5); Supabase container logs are collected here.
+      - name: Collect Supabase logs
+        if: failure()
+        run: |
+          mkdir -p logs/supabase
+          for c in $(docker ps -a --filter "name=supabase_" --format '{{.Names}}'); do
+            docker logs "$c" > "logs/supabase/$c.log" 2>&1 || true
+          done
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: diagnostics
+          path: |
+            playwright-report/
+            logs/
+          if-no-files-found: ignore
           retention-days: 7

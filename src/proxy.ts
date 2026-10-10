@@ -25,6 +25,7 @@ export async function proxy(request: NextRequest) {
       url: config.supabaseUrl,
       anonKey: config.supabaseAnonKey,
       secureCookies: process.env.NODE_ENV === 'production',
+      serviceClient: null, // session refresh only: no service role here
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (toSet, headers) => {

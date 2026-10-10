@@ -9,7 +9,15 @@ import { NO_STORE_HEADERS, hardenCookieOptions, type CookieJar } from './cookies
 
 type FakeUser = { id: UserId; email: string; password: string; confirmed: boolean };
 
-export type FakeAuthOperation = 'signUp' | 'verify' | 'signIn' | 'resend' | 'signOut' | 'getUser';
+export type FakeAuthOperation =
+  | 'signUp'
+  | 'verify'
+  | 'signIn'
+  | 'resend'
+  | 'signOut'
+  | 'getUser'
+  | 'verifyPassword'
+  | 'deleteUser';
 
 export type FakeAuthBackend = {
   readonly users: Map<string, FakeUser>;
@@ -20,6 +28,8 @@ export type FakeAuthBackend = {
   readonly sessions: Map<string, UserId>;
   /** Makes an operation answer rate_limited, or throw unavailable, until removed. */
   readonly failures: Map<FakeAuthOperation, 'rate_limited' | 'unavailable'>;
+  /** Called after a user is deleted: test wiring uses it to model ON DELETE CASCADE (ADR-0006). */
+  readonly onUserDeleted: Set<(userId: UserId) => void>;
 };
 
 export const FAKE_SESSION_COOKIE = 'fake-auth-session';
@@ -32,6 +42,7 @@ export function createFakeAuthBackend(): FakeAuthBackend {
     sent: new Map(),
     sessions: new Map(),
     failures: new Map(),
+    onUserDeleted: new Set(),
   };
 }
 
@@ -75,6 +86,11 @@ export function createFakeAuthProvider(
 
   const currentSessionId = () =>
     cookies.getAll().find((c) => c.name === FAKE_SESSION_COOKIE)?.value;
+
+  const sessionUser = () => {
+    const userId = backend.sessions.get(currentSessionId() ?? '');
+    return [...backend.users.values()].find((u) => u.id === userId);
+  };
 
   return {
     async signUp(email, password) {
@@ -124,9 +140,26 @@ export function createFakeAuthProvider(
 
     async getUser() {
       rateLimited('getUser');
-      const userId = backend.sessions.get(currentSessionId() ?? '');
-      const user = [...backend.users.values()].find((u) => u.id === userId);
+      const user = sessionUser();
       return user ? { id: user.id } : null;
+    },
+
+    async verifyPassword(password) {
+      if (rateLimited('verifyPassword')) return 'rate_limited';
+      const user = sessionUser();
+      return user && user.password === password ? 'ok' : 'invalid';
+    },
+
+    async deleteUser(userId) {
+      rateLimited('deleteUser');
+      const user = [...backend.users.values()].find((u) => u.id === userId);
+      if (!user) return; // already deleted
+      backend.users.delete(user.email);
+      for (const [sessionId, id] of backend.sessions) {
+        if (id === userId) backend.sessions.delete(sessionId);
+      }
+      for (const [token, id] of backend.tokens) if (id === userId) backend.tokens.delete(token);
+      for (const listener of backend.onUserDeleted) listener(userId);
     },
   };
 }

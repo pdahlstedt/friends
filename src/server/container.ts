@@ -61,6 +61,7 @@ export async function requestServices(): Promise<RequestServices> {
     anonKey: config.supabaseAnonKey,
     cookies: jar,
     secureCookies: secureCookies(),
+    serviceClient: service,
   });
   const profiles = createProfilesApi({
     store: createSupabaseProfileStore({ userClient, serviceClient: service }),

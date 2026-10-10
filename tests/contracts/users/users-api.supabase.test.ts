@@ -25,6 +25,7 @@ usersApiContract('real-wired', async () => {
         anonKey,
         cookies: jar,
         secureCookies: true,
+        serviceClient: service,
       });
       const profiles = createProfilesApi({
         store: createSupabaseProfileStore({ userClient, serviceClient: service }),

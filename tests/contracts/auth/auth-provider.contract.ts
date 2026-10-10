@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import { toUserId, type UserId } from '@/lib/types/ids';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AuthProvider } from '@/lib/adapters/auth/auth-provider';
 import { createTestCookieJar, type TestCookieJar } from '../../support/cookie-jar';
 
-// AuthProvider contract (spec 0001: AC1, AC2, AC4–AC8, AC10, AC17). Runs against the fake and
+// AuthProvider contract (spec 0001: AC1, AC2, AC4–AC8, AC10, AC17; spec 0002: account deletion). Runs against the fake and
 // local Supabase (tokens read from Mailpit). Each "browser" is a cookie jar; a provider is
 // created per request, bound to one jar, like the app does.
 
@@ -16,6 +17,8 @@ export type AuthProviderHarness = {
   nextToken(email: string, alreadySeen: number): Promise<string>;
   /** Lets the auth server's per-account email interval pass (real: ~1 s locally). */
   waitForEmailInterval(): Promise<void>;
+  /** Number of live sessions the auth server holds for the user. */
+  sessionCount(userId: UserId): Promise<number>;
   cleanup(): Promise<void>;
 };
 
@@ -226,6 +229,85 @@ export function authProviderContract(
           expect(jar.writes[0]!.headers['Cache-Control']).toContain('no-store');
         },
       );
+    });
+
+    describe('account deletion', () => {
+      /** A confirmed account, signed in on its own browser. */
+      async function signedIn() {
+        const email = newEmail();
+        const id = await confirmedAccount(email);
+        const jar = createTestCookieJar();
+        await request(jar).signInWithPassword(email, PASSWORD);
+        return { email, id, jar };
+      }
+
+      it('[0002-AC2] verifyPassword accepts the right password and leaves the session as it is', async () => {
+        const { id, jar } = await signedIn();
+        const before = new Map(jar.cookies);
+        const writes = jar.writes.length;
+        const sessions = await h.sessionCount(id);
+
+        expect(await request(jar).verifyPassword(PASSWORD)).toBe('ok');
+
+        expect(await h.sessionCount(id)).toBe(sessions); // the check's own session is ended
+        expect(jar.writes.length).toBe(writes);
+        expect(jar.cookies).toEqual(before);
+        expect(await request(jar).getUser()).toEqual({ id });
+      });
+
+      it('[0002-AC6] verifyPassword rejects a wrong password, and anyone signed out', async () => {
+        const { id, jar } = await signedIn();
+        expect(await request(jar).verifyPassword('not the right password')).toBe('invalid');
+        expect(await request(jar).getUser()).toEqual({ id });
+        expect(await request().verifyPassword(PASSWORD)).toBe('invalid');
+      });
+
+      it('[0002-AC11] deleteUser ends every session of the user, on every device', async () => {
+        const first = await signedIn();
+        const second = createTestCookieJar();
+        await request(second).signInWithPassword(first.email, PASSWORD);
+
+        await request(first.jar).deleteUser(first.id);
+
+        expect(await request(first.jar).getUser()).toBeNull();
+        expect(await request(second).getUser()).toBeNull();
+      });
+
+      it('[0002-AC3] after deleteUser, the old credentials look like an unknown account', async () => {
+        const { email, id, jar } = await signedIn();
+        await request(jar).deleteUser(id);
+        const fresh = createTestCookieJar();
+        expect(await request(fresh).signInWithPassword(email, PASSWORD)).toEqual({
+          ok: false,
+          reason: 'invalid_credentials',
+        });
+        expect(await request(fresh).getUser()).toBeNull();
+      });
+
+      it('[0002-AC2] signOut after deleteUser clears the cookies without failing', async () => {
+        const { id, jar } = await signedIn();
+        await request(jar).deleteUser(id);
+        await expect(request(jar).signOut()).resolves.toBeUndefined();
+        expect(jar.cookies.size).toBe(0);
+      });
+
+      it('[0002-AC12] deleteUser is idempotent and accepts an unknown user', async () => {
+        const { id, jar } = await signedIn();
+        await request(jar).deleteUser(id);
+        await expect(request().deleteUser(id)).resolves.toBeUndefined();
+        await expect(request().deleteUser(toUserId(randomUUID()))).resolves.toBeUndefined();
+      });
+
+      it('[0002-AC5] the email can sign up again, as a new account', async () => {
+        const { email, id, jar } = await signedIn();
+        await request(jar).deleteUser(id);
+        const sent = await h.tokensSent(email);
+
+        expect(await request().signUp(email, 'a brand new password')).toBe('ok');
+        const result = await request().verifyEmailToken(await h.nextToken(email, sent));
+        expect(result.ok).toBe(true);
+        if (result.ok) expect(result.userId).not.toBe(id);
+      });
     });
   });
 }

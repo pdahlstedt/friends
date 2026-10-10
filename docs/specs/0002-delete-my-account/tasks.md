@@ -11,7 +11,7 @@ Format: `- [ ] Tn — <description> (AC refs) — <commit type>(<scope>)`
 
 ## Auth adapter and users module
 
-- [ ] T4 — `AuthProvider`: `verifyPassword` (separate cookie-less client; the extra session is signed out at once) and `deleteUser` (admin hard delete; 404 counts as deleted); `createSupabaseAuth` takes the service client; fake backend with an `onUserDeleted` hook. New contract cases against the fake and local Supabase; unit tests for the fake and error mapping. (AC2, AC3, AC6, AC11, AC12) — feat(adapters)
+- [x] T4 — `AuthProvider`: `verifyPassword` (separate cookie-less client; the extra session is signed out at once) and `deleteUser` (admin hard delete; 404 counts as deleted); `createSupabaseAuth` takes the service client; fake backend with an `onUserDeleted` hook. New contract cases against the fake and local Supabase; unit tests for the fake and error mapping. (AC2, AC3, AC6, AC11, AC12) — feat(adapters)
 - [ ] T5 — `users.deleteAccount`: strict `{ password }` schema, `DELETE_ACCOUNT_LIMIT` (ip + user), the step order from the plan, outcomes and logging. Composition-root wiring. Unit tests at 100%. `UsersApi` contract cases, fake-wired and real-wired (AC2, AC3, AC5, AC6, AC7, AC9, AC11, AC12), plus the real-wired AC4 residue scan across all non-system schemas. (AC2–AC9, AC11, AC12, AC14) — feat(users)
 
 ## UI and end to end

@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { AuthProviderError } from './auth-provider';
 import {
+  deleteUserOutcome,
   getUserOutcome,
   resendOutcome,
   signInOutcome,
   signOutOutcome,
   signUpOutcome,
   verifyOutcome,
+  verifyPasswordOutcome,
 } from './errors';
 
 const err = (status: number | undefined, code?: string) => ({ status, code });
@@ -144,5 +146,38 @@ describe('signOutOutcome', () => {
 
   it('throws unavailable when revocation fails', () => {
     expectUnavailable(() => signOutOutcome(err(500)));
+  });
+});
+
+describe('verifyPasswordOutcome', () => {
+  it('maps success to ok', () => {
+    expect(verifyPasswordOutcome(null)).toBe('ok');
+  });
+
+  it('[0002-AC6] maps a wrong password to invalid', () => {
+    expect(verifyPasswordOutcome(err(400, 'invalid_credentials'))).toBe('invalid');
+  });
+
+  it('[0002-AC7] maps rate limits to rate_limited', () => {
+    expect(verifyPasswordOutcome(ipRateLimit)).toBe('rate_limited');
+  });
+
+  it('throws unavailable for anything else', () => {
+    expectUnavailable(() => verifyPasswordOutcome(err(500)));
+    expectUnavailable(() => verifyPasswordOutcome(err(400, 'email_not_confirmed')));
+  });
+});
+
+describe('deleteUserOutcome', () => {
+  it('[0002-AC12] accepts success and an already-deleted user', () => {
+    expect(() => deleteUserOutcome(null)).not.toThrow();
+    expect(() => deleteUserOutcome(err(404, 'user_not_found'))).not.toThrow();
+    expect(() => deleteUserOutcome(err(404))).not.toThrow();
+  });
+
+  it('throws unavailable when the delete fails', () => {
+    expectUnavailable(() => deleteUserOutcome(err(500)));
+    expectUnavailable(() => deleteUserOutcome(err(403, 'not_admin')));
+    expectUnavailable(() => deleteUserOutcome(err(undefined)));
   });
 });

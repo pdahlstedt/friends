@@ -9,7 +9,7 @@ Deletion follows [ADR-0006](../../adr/0006-account-deletion.md). `users.deleteAc
 3. **Our rate limit.** 5 per 15 minutes on the `ip` and `user` dimensions, checked before Supabase is called, so it holds even with the right password (AC7).
 4. **Re-authenticate.** `auth.verifyPassword(password)` checks the password of the session's own user (AC2, AC6).
 5. **Delete.** `auth.deleteUser(userId)` is Supabase's admin hard delete. It runs in one database transaction that also removes the user's sessions, refresh tokens and identities, and, through `ON DELETE CASCADE`, every module row (`profiles.profiles`). This is the commit point (AC2, AC4, AC11, AC12).
-6. **Erase what Supabase keeps.** `store.eraseAuthAuditEntries(userId)` removes the user's rows from `auth.audit_log_entries`. If it fails, the result is still `deleted` and an error is logged, because the daily sweep catches it (ADR-0006 §3).
+6. **Erase what Supabase keeps.** `store.eraseAuthLeftovers(userId)` removes the user's rows from `auth.audit_log_entries` and `auth.flow_state`. If it fails, the result is still `deleted` and an error is logged, because the daily sweep catches it (ADR-0006 §3).
 7. **End this device's session.** `auth.signOut()` clears the cookies. The refresh token is already gone, and the adapter treats Supabase's 4xx answer as signed out (AC2).
 
 Steps 3–5 can fail with `AuthProviderError` or a limiter error. The outcome is then `failed`, nothing has changed, and a retry runs the same steps again (AC12). `deleteUser` treats "user not found" as already deleted, so a retry after an unclear failure also ends in `deleted`.
@@ -18,11 +18,11 @@ Other devices (AC11) are covered by the same transaction: their refresh tokens a
 
 ## Modules and interfaces
 
-| Module   | Change                                                                                                                              | Public interface change (`contract.ts`) |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| users    | `deleteAccount` flow; new store for the auth audit-log erase; new rate-limit policy; first `users` Postgres schema (functions only) | `UsersApi.deleteAccount` (below)        |
-| profiles | None. `profiles.profiles` already has `user_id … references auth.users(id) on delete cascade` (0001).                               | None                                    |
-| lib      | `rate-limit/policy.ts`: new `user` dimension (the HMAC'd user ID, ADR-0005)                                                         | n/a (lib)                               |
+| Module   | Change                                                                                                                            | Public interface change (`contract.ts`) |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| users    | `deleteAccount` flow; new store that erases Auth leftovers; new rate-limit policy; first `users` Postgres schema (functions only) | `UsersApi.deleteAccount` (below)        |
+| profiles | None. `profiles.profiles` already has `user_id … references auth.users(id) on delete cascade` (0001).                             | None                                    |
+| lib      | `rate-limit/policy.ts`: new `user` dimension (the HMAC'd user ID, ADR-0005)                                                       | n/a (lib)                               |
 
 ```ts
 // src/modules/users/contract.ts (addition)
@@ -47,9 +47,9 @@ export interface UsersApi {
 ```
 
 - **Users store** (`src/modules/users/store/`, ADR-0004):
-  - `store.ts`: `UserAccountStore { eraseAuthAuditEntries(userId: UserId): Promise<void> }`. This method is privileged (service role) and idempotent.
+  - `store.ts`: `UserAccountStore { eraseAuthLeftovers(userId: UserId): Promise<void> }`. This method is privileged (service role) and idempotent.
   - `memory.ts`: the in-memory fake.
-  - `real/supabase.ts`: calls `rpc('erase_auth_audit', { p_user_id })` on the `users` schema through the service-role client.
+  - `real/supabase.ts`: calls `rpc('erase_auth_leftovers', { p_user_id })` on the `users` schema through the service-role client.
 - **Rate limit:** `DELETE_ACCOUNT_LIMIT = { action: 'delete_account', dimensions: ['ip', 'user'], limit: 5, windowSeconds: 15 * 60 }` in `src/modules/users/rate-limits.ts`.
 - **Composition root:** `src/server/container.ts` passes the service client to `createSupabaseAuth` (for `deleteUser`) and wires the users store.
 
@@ -74,40 +74,23 @@ Messages:
 **Migration `users_account_erasure`** creates the schema `users` (owned by the users module). It contains no tables in this slice.
 
 ```sql
-create schema users;
-revoke all on schema users from public, anon, authenticated;
-grant usage on schema users to service_role;
+create schema users;  -- usage: service_role only
 
--- ADR-0006 §3: erase what Supabase Auth keeps about a deleted user. Idempotent.
--- Matches the user's ID as actor or subject, plus every email those entries carry.
-create function users.erase_auth_audit(p_user_id uuid) returns void
-  language sql security definer set search_path = '' as $$
-  with emails as (
-    select distinct lower(e) as email
-    from auth.audit_log_entries a,
-         lateral (values (a.payload->>'actor_username'), (a.payload->'traits'->>'user_email')) v(e)
-    where (a.payload->>'actor_id' = p_user_id::text or a.payload->'traits'->>'user_id' = p_user_id::text)
-      and e like '%@%'
-  )
-  delete from auth.audit_log_entries a
-  where a.payload->>'actor_id' = p_user_id::text
-     or a.payload->'traits'->>'user_id' = p_user_id::text
-     or lower(a.payload->>'actor_username') in (select email from emails)
-     or lower(a.payload->'traits'->>'user_email') in (select email from emails);
-$$;
+-- ADR-0006 §3. Both security definer, set search_path = '', executable only by service_role.
+users.erase_auth_leftovers(p_user_id uuid) returns void
+  -- deletes the user's auth.flow_state rows, and every auth.audit_log_entries row about the
+  -- user (actor_id or traits.user_id), plus entries carrying one of the user's emails
+users.sweep_auth_leftovers() returns void
+  -- deletes flow states and audit entries about user IDs no longer in auth.users
 
--- Backstop (ADR-0006 §3): entries about users that no longer exist. The zero UUID is the
--- service role as actor; such entries are matched on their subject (traits.user_id) instead.
-create function users.sweep_auth_audit() returns void
-  language sql security definer set search_path = '' as $$ … $$;
-
-revoke all on function users.erase_auth_audit(uuid), users.sweep_auth_audit() from public, anon, authenticated;
-grant execute on function users.erase_auth_audit(uuid), users.sweep_auth_audit() to service_role;
-
-select cron.schedule('users-sweep-auth-audit', '17 3 * * *', 'select users.sweep_auth_audit()');
+select cron.schedule('users-sweep-auth-leftovers', '17 3 * * *', 'select users.sweep_auth_leftovers()');
 ```
 
-- The function owner (`postgres`) has `DELETE` on `auth.audit_log_entries`; this was checked locally. Production is checked in 0003 (see Risks).
+The migration is `supabase/migrations/20261010203518_users_account_erasure.sql`.
+
+**Found during T5:** `auth.flow_state` (PKCE sign-up state) has the user's ID and no foreign key to `auth.users`, so it outlives the account like the audit log. The AC4 scan caught it, as ADR-0006 §5 intended. The erase and sweep cover both tables, so they are named `*_auth_leftovers`, not `*_auth_audit` as first planned.
+
+- The function owner (`postgres`) has `DELETE` on `auth.audit_log_entries` and `auth.flow_state`; this was checked locally. Production is checked in 0003 (see Risks).
 - `supabase/config.toml`: add `users` to `[api] schemas`, so the service role can call the RPC. `pnpm db:types` adds the `users` schema.
 - No new cross-schema foreign keys.
 
@@ -115,11 +98,11 @@ select cron.schedule('users-sweep-auth-audit', '17 3 * * *', 'select users.sweep
 
 There are no tables in `users`. The privilege matrix for the functions:
 
-| Object                          | anon    | user (own) | user (other) | service_role |
-| ------------------------------- | ------- | ---------- | ------------ | ------------ |
-| `users.erase_auth_audit(uuid)`  | denied  | denied     | denied       | allowed      |
-| `users.sweep_auth_audit()`      | denied  | denied     | denied       | allowed      |
-| `profiles.profiles` (unchanged) | as 0001 | as 0001    | as 0001      | as 0001      |
+| Object                             | anon    | user (own) | user (other) | service_role |
+| ---------------------------------- | ------- | ---------- | ------------ | ------------ |
+| `users.erase_auth_leftovers(uuid)` | denied  | denied     | denied       | allowed      |
+| `users.sweep_auth_leftovers()`     | denied  | denied     | denied       | allowed      |
+| `profiles.profiles` (unchanged)    | as 0001 | as 0001    | as 0001      | as 0001      |
 
 Moderator and admin roles don't exist yet.
 
@@ -156,17 +139,17 @@ deleteUser(userId: UserId): Promise<void>;
 
 ## Security controls
 
-| Threat (spec)                                                      | Control                                                                                                                                                                                                                   |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Stolen session or unattended device deletes the account (AC2, AC6) | The current password is required, checked by Supabase Auth for the session's own user.                                                                                                                                    |
-| Password brute force through the delete form (AC7)                 | Our limiter: 5 per 15 min per IP and per user ID (HMAC'd), before Supabase. Supabase's own sign-in limits apply on top.                                                                                                   |
-| CSRF / link-triggered deletion (AC10)                              | GET never mutates. Deletion is a server action (POST) with Next's Origin/Host check, `SameSite=Lax` cookies, and the password as a secret the attacker doesn't know.                                                      |
-| IDOR / client-supplied identity (AC9)                              | The user ID comes only from `auth.getUser()`. The action passes only `password`, and a strict schema rejects any other key.                                                                                               |
-| Enumeration after deletion (AC3, AC5)                              | The auth user is hard-deleted, so log-in and sign-up behave exactly as for an email that never existed (0001 AC4, AC7).                                                                                                   |
-| Revoked sessions still working (AC11)                              | Sessions and refresh tokens are deleted in the same transaction, and every request verifies the user with the auth server.                                                                                                |
-| Partial deletion / orphaned data (AC4, AC12)                       | A single atomic delete with cascades (ADR-0006). The audit-log erase is idempotent, with a daily sweep as backstop. A catalog test requires the cascading FK on every user column. A residue scan proves nothing remains. |
-| Personal data in logs (AC14)                                       | Log event `users.delete_account` with `outcome` (and `errorCode` on failure) only. The system-test log scan also checks the user's ID, taken from the JWT `sub` claim.                                                    |
-| Headers and cookies (AC15)                                         | The new pages go through the same proxy and layout. They are added to `PUBLIC_PAGES` for the header test.                                                                                                                 |
+| Threat (spec)                                                      | Control                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stolen session or unattended device deletes the account (AC2, AC6) | The current password is required, checked by Supabase Auth for the session's own user.                                                                                                                                            |
+| Password brute force through the delete form (AC7)                 | Our limiter: 5 per 15 min per IP and per user ID (HMAC'd), before Supabase. Supabase's own sign-in limits apply on top.                                                                                                           |
+| CSRF / link-triggered deletion (AC10)                              | GET never mutates. Deletion is a server action (POST) with Next's Origin/Host check, `SameSite=Lax` cookies, and the password as a secret the attacker doesn't know.                                                              |
+| IDOR / client-supplied identity (AC9)                              | The user ID comes only from `auth.getUser()`. The action passes only `password`, and a strict schema rejects any other key.                                                                                                       |
+| Enumeration after deletion (AC3, AC5)                              | The auth user is hard-deleted, so log-in and sign-up behave exactly as for an email that never existed (0001 AC4, AC7).                                                                                                           |
+| Revoked sessions still working (AC11)                              | Sessions and refresh tokens are deleted in the same transaction, and every request verifies the user with the auth server.                                                                                                        |
+| Partial deletion / orphaned data (AC4, AC12)                       | A single atomic delete with cascades (ADR-0006). The erase of Auth leftovers is idempotent, with a daily sweep as backstop. A catalog test requires the cascading FK on every user column. A residue scan proves nothing remains. |
+| Personal data in logs (AC14)                                       | Log event `users.delete_account` with `outcome` (and `errorCode` on failure) only. The system-test log scan also checks the user's ID, taken from the JWT `sub` claim.                                                            |
+| Headers and cookies (AC15)                                         | The new pages go through the same proxy and layout. They are added to `PUBLIC_PAGES` for the header test.                                                                                                                         |
 
 ## Test plan
 
@@ -189,7 +172,7 @@ Test-support changes:
 
 ## Risks
 
-- **Supabase-owned `auth` schema.** The erase depends on `auth.audit_log_entries` and its JSON layout. If an upgrade changes it, the AC4 residue scan fails in CI. Hosted Supabase may restrict `postgres`'s `DELETE` on `auth` tables. This is checked when deploying in 0003; if it is restricted, the fallback is to stop writing the audit log to the database (ADR-0006 §3).
+- **Supabase-owned `auth` schema.** The erase depends on `auth.audit_log_entries` (and its JSON layout) and `auth.flow_state`. If an upgrade changes it, the AC4 residue scan fails in CI. Hosted Supabase may restrict `postgres`'s `DELETE` on `auth` tables. This is checked when deploying in 0003; if it is restricted, the fallback is to stop writing the audit log to the database (ADR-0006 §3).
 - **Extra audit entries from re-authentication.** `verifyPassword` signs in, which writes a `login` entry with the email. The same erase covers it, since it is matched by actor ID.
 - **Supabase's built-in sign-in rate limit** also counts `verifyPassword`. Local `[auth.rate_limit]` values are already raised for the test suites (0001).
 - **The AC4 scan reads every non-system table as text.** That is fine on the local and CI database, but it is never run against production.

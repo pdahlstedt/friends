@@ -2,7 +2,7 @@
 
 |           |                                                                                                                                                                                                             |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status    | Draft                                                                                                                                                                                                       |
+| Status    | Approved                                                                                                                                                                                                    |
 | Story map | Release 1 — Minimum lovable / Join ("Delete my account (GDPR)"); pulled forward as the GDPR gate for going live (0003)                                                                                      |
 | Modules   | users, profiles                                                                                                                                                                                             |
 | ADRs      | [0002 Modular monolith](../../adr/0002-modular-monolith.md), [0004 Module data access](../../adr/0004-module-data-access.md), [0005 Application rate limiting](../../adr/0005-application-rate-limiting.md) |

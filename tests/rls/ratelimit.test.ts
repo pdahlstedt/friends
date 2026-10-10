@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { closeDb, db } from './support/db';
+import { closeDb, db } from '../support/db';
 import {
   anonClient,
   createTestUser,

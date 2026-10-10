@@ -63,7 +63,7 @@ Use this repository's workflow only. Do not invoke GSD commands or workflows for
 - A bug fix starts with a failing test that reproduces it (at the lowest level that can catch it, plus a regression test if it was user-visible).
 - Never disable, skip or weaken a test, coverage threshold, lint rule or type check to make CI pass. Ask instead.
 - Integration tests get connection details from `tests/support/local-supabase.ts` (env vars in CI, otherwise `supabase status`). It refuses non-local hosts on purpose, because these tests create and delete users. Never bypass it.
-- In RLS tests, assert access only through the role clients in `tests/support/roles.ts` (real JWTs via PostgREST). `serviceClient()` is only for arranging and cleaning up data, and the superuser `db()` in `tests/rls/support/db.ts` is only for catalog checks.
+- In RLS tests, assert access only through the role clients in `tests/support/roles.ts` (real JWTs via PostgREST). `serviceClient()` is only for arranging and cleaning up data, and the superuser `db()` in `tests/support/db.ts` is only for catalog checks.
 - Playwright uses `retries: 0`: fix or quarantine a flaky test, never retry it.
 
 ## Security rules (non-negotiable)

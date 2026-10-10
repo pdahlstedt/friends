@@ -3,7 +3,7 @@ import { createSupabaseAuth } from '@/lib/adapters/auth/real/supabase';
 import { createPostgresRateLimiter } from '@/lib/adapters/rate-limit/real/postgres';
 import { createProfilesApi, createSupabaseProfileStore } from '@/modules/profiles';
 import { createUsersApi } from '@/modules/users';
-import { db, closeDb } from '../../rls/support/db';
+import { db, closeDb } from '../../support/db';
 import { localSupabase } from '../../support/local-supabase';
 import { waitForVerificationToken } from '../../support/mailpit';
 import { serviceClient } from '../../support/roles';

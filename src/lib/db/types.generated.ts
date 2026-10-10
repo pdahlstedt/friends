@@ -78,6 +78,24 @@ export type Database = {
       [_ in never]: never;
     };
   };
+  users: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      erase_auth_audit: { Args: { p_user_id: string }; Returns: undefined };
+      sweep_auth_audit: { Args: Record<PropertyKey, never>; Returns: undefined };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
 };
 
 type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
@@ -186,6 +204,9 @@ export const Constants = {
     Enums: {},
   },
   ratelimit: {
+    Enums: {},
+  },
+  users: {
     Enums: {},
   },
 } as const;

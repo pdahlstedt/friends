@@ -1,5 +1,5 @@
 import postgres from 'postgres';
-import { localSupabase } from '../../support/local-supabase';
+import { localSupabase } from './local-supabase';
 
 // Direct Postgres connection (superuser) for catalog checks only. Access assertions
 // must use the role clients in ./roles.ts so they go through PostgREST like real traffic.

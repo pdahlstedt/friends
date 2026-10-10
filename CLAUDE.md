@@ -63,7 +63,7 @@ Use this repository's workflow only. Do not invoke GSD commands or workflows for
 - A bug fix starts with a failing test that reproduces it (at the lowest level that can catch it, plus a regression test if it was user-visible).
 - Never disable, skip or weaken a test, coverage threshold, lint rule or type check to make CI pass. Ask instead.
 - Integration tests get connection details from `tests/support/local-supabase.ts` (env vars in CI, otherwise `supabase status`). It refuses non-local hosts on purpose, because these tests create and delete users. Never bypass it.
-- In RLS tests, assert access only through the role clients in `tests/rls/support/roles.ts` (real JWTs via PostgREST). `serviceClient()` is only for arranging and cleaning up data, and the superuser `db()` in `support/db.ts` is only for catalog checks.
+- In RLS tests, assert access only through the role clients in `tests/support/roles.ts` (real JWTs via PostgREST). `serviceClient()` is only for arranging and cleaning up data, and the superuser `db()` in `tests/rls/support/db.ts` is only for catalog checks.
 - Playwright uses `retries: 0`: fix or quarantine a flaky test, never retry it.
 
 ## Security rules (non-negotiable)
@@ -113,7 +113,7 @@ Node 24 (`.nvmrc`). The Supabase CLI is a devDependency — run it as `pnpm exec
 - Single test: `pnpm exec vitest run path/to/file.test.ts -t "name"` (unit), add `--config vitest.rls.config.ts` or `--config vitest.contracts.config.ts` for those suites; `pnpm exec playwright test tests/system/x.spec.ts -g "name"`. Coverage thresholds only make sense on a full `pnpm test` run.
 - `pnpm exec supabase start` — local Supabase stack; `pnpm exec supabase db reset` — reapply migrations + `supabase/seed.sql` (CI does this before integration tests)
 - `pnpm exec supabase migration new <name>` — create migration
-- `pnpm exec supabase gen types` → `src/lib/db/types.generated.ts`
+- `pnpm db:types` — regenerate `src/lib/db/types.generated.ts` from the local DB (add new module schemas to the script)
 - `stripe listen --forward-to localhost:3000/api/webhooks/stripe` — local webhooks
 - Slash commands: `/spec` (see `.claude/commands/spec.md` and `.github/prompts/spec.prompt.md`), `/plan`, `/implement`, `/verify` (see `.claude/commands/`)
 

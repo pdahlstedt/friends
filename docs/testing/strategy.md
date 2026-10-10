@@ -12,15 +12,18 @@
 
 ## Unit tests — 100% coverage
 
-Threshold: **100% statements, branches, functions, lines** on `src/modules/**` and `src/lib/**`. CI fails below it.
+Threshold: **100% statements, branches, functions, lines** on `src/modules/**` and `src/lib/**`. CI fails below it. The unit run also includes the contract suites wired to the in-memory fakes (`tests/contracts/**/*.fake.test.ts`), so every fake is held to the same contract as its real implementation.
 
-Excluded from unit coverage (and covered elsewhere instead):
+Excluded from unit coverage (and covered elsewhere instead). The `real/` folders are listed in `coverage.exclude` in `vitest.config.ts`; `src/app`, `src/server` and `src/proxy.ts` are simply outside `coverage.include`:
 
-| Excluded                                        | Why                                      | Covered by     |
-| ----------------------------------------------- | ---------------------------------------- | -------------- |
-| `src/lib/adapters/**/real/**` (vendor bindings) | Only meaningful against the real service | Contract tests |
-| `src/app/**` (Next.js pages/layouts wiring)     | Framework glue, little logic             | System tests   |
-| `**/*.d.ts`, generated DB types                 | No runtime code                          | Typecheck      |
+| Excluded                                            | Why                                       | Covered by     |
+| --------------------------------------------------- | ----------------------------------------- | -------------- |
+| `src/lib/adapters/**/real/**` (vendor bindings)     | Only meaningful against the real service  | Contract tests |
+| `src/modules/*/store/real/**` (ADR-0004)            | Only meaningful against the real database | Contract tests |
+| `src/app/**` (Next.js pages/layouts wiring)         | Framework glue, little logic              | System tests   |
+| `src/server/**` (composition root)                  | Wiring only, holds the real clients       | System tests   |
+| `src/proxy.ts` (per-request nonce, session refresh) | Framework glue                            | System tests   |
+| `**/*.d.ts`, generated DB types                     | No runtime code                           | Typecheck      |
 
 Rules:
 

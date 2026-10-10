@@ -38,5 +38,6 @@ Format: `- [ ] Tn — <description> (AC refs) — <commit type>(<scope>)`
 
 ## Close-out
 
-- [ ] T19 — **You:** create the GitHub repo, push `main`, enable branch protection (PR required, CI checks required, no force-push), and enable secret scanning, CodeQL and Dependabot. **Claude:** verify with `gh api` and record the result. (AC19) — chore
+- [x] T19 — **You:** create the GitHub repo, push `main`, enable branch protection (PR required, CI checks required, no force-push), and enable secret scanning, CodeQL and Dependabot. **Claude:** verify with `gh api` and record the result. (AC19) — chore
+  - Verified 2026-10-10 with `gh api` on `pdahlstedt/friends` (public): ruleset "protect main" active on the default branch, no bypass actors; blocks deletion and force-push (`non_fast_forward`); requires a PR (0 approvals) and the `static` and `integration` checks from GitHub Actions. Squash merge only, head branches auto-deleted. Secret scanning and push protection on; Dependabot alerts and security updates on; CodeQL default setup (JavaScript/TypeScript, Actions); private vulnerability reporting on; Actions token read-only by default and cannot approve PRs.
 - [ ] T20 — Docs: CLAUDE.md adapter rule (ADR-0004 exception); architecture overview (container diagram without browser→Postgres; `AuthProvider` and `RateLimiter` in the adapters table; module APIs); `docs/testing/strategy.md` coverage exclusions (`src/modules/*/store/real/**`, `src/server/**`, `src/proxy.ts`); `.env.example`; spec traceability table; spec status set to Done. — docs

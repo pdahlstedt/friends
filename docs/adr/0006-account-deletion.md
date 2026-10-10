@@ -1,9 +1,9 @@
 # ADR-0006: Account deletion — atomic auth delete with cascading module tables, then erasure of what Supabase keeps
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-10
 - Related specs: 0002
-- Amends: [ADR-0004](0004-module-data-access.md) §5 (once accepted)
+- Amends: [ADR-0004](0004-module-data-access.md) §5
 
 ## Context
 

@@ -30,10 +30,35 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'desktop', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    // AC15: the journey test also runs at phone and tablet widths (Chromium only, as in CI).
+    {
+      name: 'phone',
+      grep: /\[0001-AC15\]/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 360, height: 740 },
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
+      name: 'tablet',
+      grep: /\[0001-AC15\]/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 768, height: 1024 },
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+  ],
   webServer: {
-    // Server log goes to logs/server.log: CI uploads it on failure, and the AC20 test (0001-T18)
-    // scans it for personal data. Truncated on every run.
+    // Server log goes to logs/server.log: CI uploads it on failure, and the AC20 check
+    // scans it for personal data (tests/system/support/server-log.ts). Truncated on every run.
     command: `mkdir -p logs && pnpm start --port ${PORT} > logs/server.log 2>&1`,
     url: `http://localhost:${PORT}`,
     env: serverEnv,

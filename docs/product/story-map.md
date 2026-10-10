@@ -30,5 +30,5 @@ Priority rule: next slice = highest **value per effort** or highest **risk retir
 
 | Spec                                                     | Slice                                                                                | Status      |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------- |
-| [0001](../specs/0001-create-account-and-profile/spec.md) | Walking skeleton: create an account and see my profile (local stack + CI gates)      | Approved    |
+| [0001](../specs/0001-create-account-and-profile/spec.md) | Walking skeleton: create an account and see my profile (local stack + CI gates)      | Done        |
 | 0002                                                     | Walking skeleton: live for the first real users (EU hosting, Cloudflare, real email) | Not started |

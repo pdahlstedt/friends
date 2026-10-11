@@ -48,6 +48,7 @@ Use this repository's workflow only. Do not invoke GSD commands or workflows for
 - `@supabase/*` may be imported only in `src/lib/adapters/*/real/**` and `src/modules/*/store/real/**` (ESLint `no-restricted-imports`). These `real/` folders are excluded from unit coverage and covered by contract tests instead.
 - Dependency directions (ESLint `boundaries`, see `eslint.config.mjs`): `app` → `app`/`lib`/`server`/module `index.ts`; `server` → `server`/`lib`/`adapter`/module `index.ts`; module → own files/`lib`/`adapter`/other modules' `index.ts`; `lib` → `lib`/`adapter` only (never modules); an adapter → `lib`/itself. Files outside these elements cannot be imported from `src/`.
 - The only cross-schema foreign key allowed is a module table → `auth.users(id) ON DELETE CASCADE`. DB types are generated into `src/lib/db/types.generated.ts` and used only by `store/real/` code.
+- **Account deletion (ADR-0006):** every module table holding a user's data has that cascading foreign key on its user column (`user_id` or `*_user_id`; a catalog test enforces it). Deleting the auth user is the one atomic step that removes the account; `users.deleteAccount` is its only entry point. Data outside Postgres (storage objects, Stripe) is erased after it through a durable erasure queue, built with the first module that needs one.
 - Rate limiting goes through the `RateLimiter` adapter (Postgres fixed window, `ratelimit` schema, HMAC'd keys — ADR-0005); declare rules via the policy helper in `src/lib/rate-limit/`.
 - Every adapter and store has an in-memory fake implementing the same interface, used in unit tests.
 - Code must stay portable: runnable in plain Node/Docker. No edge-only APIs in business logic.
@@ -63,7 +64,7 @@ Use this repository's workflow only. Do not invoke GSD commands or workflows for
 - A bug fix starts with a failing test that reproduces it (at the lowest level that can catch it, plus a regression test if it was user-visible).
 - Never disable, skip or weaken a test, coverage threshold, lint rule or type check to make CI pass. Ask instead.
 - Integration tests get connection details from `tests/support/local-supabase.ts` (env vars in CI, otherwise `supabase status`). It refuses non-local hosts on purpose, because these tests create and delete users. Never bypass it.
-- In RLS tests, assert access only through the role clients in `tests/support/roles.ts` (real JWTs via PostgREST). `serviceClient()` is only for arranging and cleaning up data, and the superuser `db()` in `tests/support/db.ts` is only for catalog checks.
+- In RLS tests, assert access only through the role clients in `tests/support/roles.ts` (real JWTs via PostgREST). `serviceClient()` is only for arranging and cleaning up data. The superuser `db()` in `tests/support/db.ts` is only for catalog checks and read-only checks of what PostgREST cannot reach (Supabase's `auth` tables, the AC4 residue scan in `tests/support/residue.ts`).
 - Playwright uses `retries: 0`: fix or quarantine a flaky test, never retry it.
 
 ## Security rules (non-negotiable)

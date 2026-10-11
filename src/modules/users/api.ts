@@ -2,13 +2,16 @@ import type { z } from 'zod';
 import type { AuthProvider } from '@/lib/adapters/auth/auth-provider';
 import type { RateLimiter } from '@/lib/adapters/rate-limit/rate-limiter';
 import { log as defaultLogger, type Logger } from '@/lib/log';
+import type { UserId } from '@/lib/types/ids';
 import { checkRateLimit, type RateLimitPolicy } from '@/lib/rate-limit/policy';
 import type { ProfilesApi } from '@/modules/profiles';
 import { withMinimumDuration, type Clock } from '@/lib/security/timing';
 import type { FieldErrors, RequestContext, UsersApi } from './contract';
-import { LOG_IN_LIMIT, RESEND_LIMIT, SIGN_UP_LIMIT } from './rate-limits';
+import { DELETE_ACCOUNT_LIMIT, LOG_IN_LIMIT, RESEND_LIMIT, SIGN_UP_LIMIT } from './rate-limits';
+import type { UserAccountStore } from './store/store';
 import {
   confirmInputSchema,
+  deleteAccountInputSchema,
   logInInputSchema,
   resendInputSchema,
   signUpInputSchema,
@@ -20,6 +23,8 @@ import {
 //   3. the auth provider;
 //   4. after a successful confirm or log-in, profiles.ensureProfile (idempotent).
 // Steps 2–3 are padded to MINIMUM_DURATION_MS so outcomes can't be told apart by timing (AC4).
+//
+// Account deletion (spec 0002, ADR-0006) has its own order; see deleteAccount below.
 
 export const MINIMUM_DURATION_MS = 800;
 
@@ -27,6 +32,8 @@ export type UsersApiDeps = {
   /** Bound to the current request. */
   auth: AuthProvider;
   profiles: ProfilesApi;
+  /** Erases what the auth server keeps about deleted users (ADR-0006). */
+  accounts: UserAccountStore;
   limiter: RateLimiter;
   /** RATE_LIMIT_KEY_SECRET. */
   rateLimitSecret: string;
@@ -57,9 +64,17 @@ function fieldErrors(
   return errors;
 }
 
+type DeleteAccountResult =
+  | { kind: 'deleted'; userId: UserId }
+  | { kind: 'not_signed_in' | 'wrong_password' | 'rate_limited' };
+
+/** Adapter and store errors carry a code only (never a vendor message), so it is safe to log. */
+const errorCode = (error: unknown) => String((error as { code?: unknown }).code);
+
 export function createUsersApi({
   auth,
   profiles,
+  accounts,
   limiter,
   rateLimitSecret,
   clock,
@@ -79,14 +94,30 @@ export function createUsersApi({
       logger.info({ event, outcome: result.kind });
       return result;
     } catch (error) {
-      // Adapter errors carry a code only (never a vendor message), so it is safe to log.
-      logger.error({
-        event,
-        outcome: 'error',
-        errorCode: String((error as { code?: unknown }).code),
-      });
+      logger.error({ event, outcome: 'error', errorCode: errorCode(error) });
       throw error;
     }
+  }
+
+  /** Steps up to and including the delete. Throws on adapter or limiter errors (AC12). */
+  async function deleteIfAllowed(
+    input: unknown,
+    ctx: RequestContext,
+  ): Promise<DeleteAccountResult> {
+    const user = await auth.getUser(); // identity only from the session (AC9)
+    if (!user) return { kind: 'not_signed_in' };
+    const parsed = deleteAccountInputSchema.safeParse(input);
+    if (!parsed.success) return { kind: 'wrong_password' }; // empty, oversized or extra keys
+    const limit = await checkRateLimit({ limiter, secret: rateLimitSecret }, DELETE_ACCOUNT_LIMIT, {
+      ip: ctx.clientIp,
+      user: user.id,
+    });
+    if (!limit.allowed) return { kind: 'rate_limited' };
+    const verified = await auth.verifyPassword(parsed.data.password);
+    if (verified === 'invalid') return { kind: 'wrong_password' };
+    if (verified === 'rate_limited') return { kind: 'rate_limited' };
+    await auth.deleteUser(user.id);
+    return { kind: 'deleted', userId: user.id };
   }
 
   return {
@@ -185,5 +216,36 @@ export function createUsersApi({
     },
 
     getCurrentUser: () => auth.getUser(),
+
+    // Order (plan 0002): session → validate → our rate limit → password → delete (the commit
+    // point: one transaction, cascading to module rows) → erase auth leftovers → end this
+    // session. Anything failing up to the delete changes nothing, so the outcome is `failed` and
+    // a retry is safe (AC12). After the delete the account is gone, so later failures are only
+    // logged: the daily sweep and the proxy's session refresh clean up behind them.
+    async deleteAccount(input, ctx) {
+      const event = 'users.delete_account';
+      let result: DeleteAccountResult;
+      try {
+        result = await deleteIfAllowed(input, ctx);
+      } catch (error) {
+        logger.error({ event, outcome: 'failed', errorCode: errorCode(error) });
+        return { kind: 'failed' };
+      }
+
+      if (result.kind === 'deleted') {
+        try {
+          await accounts.eraseAuthLeftovers(result.userId);
+        } catch (error) {
+          logger.error({ event, outcome: 'erase_failed', errorCode: errorCode(error) });
+        }
+        try {
+          await auth.signOut();
+        } catch (error) {
+          logger.error({ event, outcome: 'sign_out_failed', errorCode: errorCode(error) });
+        }
+      }
+      logger.info({ event, outcome: result.kind });
+      return { kind: result.kind };
+    },
   };
 }

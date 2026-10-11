@@ -12,7 +12,12 @@ import {
   createSupabaseProfileStore,
   type ProfilesApi,
 } from '@/modules/profiles';
-import { createUsersApi, type RequestContext, type UsersApi } from '@/modules/users';
+import {
+  createSupabaseUserAccountStore,
+  createUsersApi,
+  type RequestContext,
+  type UsersApi,
+} from '@/modules/users';
 
 // Composition root (spec 0001 plan): builds the per-request module APIs with the real adapters.
 // Wiring only, no logic; covered by the system tests. Server-only: it holds the service-role key.
@@ -61,6 +66,7 @@ export async function requestServices(): Promise<RequestServices> {
     anonKey: config.supabaseAnonKey,
     cookies: jar,
     secureCookies: secureCookies(),
+    serviceClient: service,
   });
   const profiles = createProfilesApi({
     store: createSupabaseProfileStore({ userClient, serviceClient: service }),
@@ -68,6 +74,7 @@ export async function requestServices(): Promise<RequestServices> {
   const users = createUsersApi({
     auth,
     profiles,
+    accounts: createSupabaseUserAccountStore({ serviceClient: service }),
     limiter,
     rateLimitSecret: config.rateLimitKeySecret,
   });

@@ -28,7 +28,8 @@ Priority rule: next slice = highest **value per effort** or highest **risk retir
 
 ## Spec index
 
-| Spec                                                     | Slice                                                                                | Status      |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------- |
-| [0001](../specs/0001-create-account-and-profile/spec.md) | Walking skeleton: create an account and see my profile (local stack + CI gates)      | Done        |
-| 0002                                                     | Walking skeleton: live for the first real users (EU hosting, Cloudflare, real email) | Not started |
+| Spec                                                     | Slice                                                                                                                                                                            | Status      |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| [0001](../specs/0001-create-account-and-profile/spec.md) | Walking skeleton: create an account and see my profile (local stack + CI gates)                                                                                                  | Done        |
+| [0002](../specs/0002-delete-my-account/spec.md)          | Delete my account (GDPR gate for going live)                                                                                                                                     | Done        |
+| 0003                                                     | Walking skeleton: live for the first real users (EU hosting, Cloudflare, real email, Turnstile, privacy notice, unconfirmed-account clean-up); who can sign up at launch is open | Not started |

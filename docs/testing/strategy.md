@@ -62,11 +62,20 @@ This guarantees fakes used in unit tests behave like the real thing, and makes v
 
 ## RLS tests
 
-For every table, a matrix of roles × operations (select/insert/update/delete), asserting both allowed and denied cases. Plus one global test: **every table in every app schema has RLS enabled**.
+For every table, a matrix of roles × operations (select/insert/update/delete), asserting both allowed and denied cases. Database functions get the same treatment for `execute`. Plus global catalog tests:
+
+- **every table in every app schema has RLS enabled** (`tests/rls/rls-enabled.test.ts`);
+- **every user column (`user_id`, `*_user_id`) cascades from `auth.users(id)`** (`tests/rls/user-foreign-keys.test.ts`, ADR-0006).
+
+## Account deletion — residue scan
+
+After a deletion, the real-wired `UsersApi` contract suite reads every table outside Postgres's system schemas (Supabase's `auth` included) as text and fails if any row still mentions the user's ID or email (`tests/support/residue.ts`, spec 0002 AC4). It catches new places where Supabase or a module keeps user data. It found `auth.flow_state` in 0002.
 
 ## System regression suite
 
 - Every acceptance criterion tagged `@regression` in a spec has a Playwright test titled with the spec and AC ID, e.g. `[0003-AC1] user can upload avatar`.
+- Journeys tagged `@responsive` (Playwright `tag`) also run in the phone (360 px) and tablet projects; everything runs in the desktop project.
+- Every system test checks, at teardown, that none of its secrets reached the server log: emails, passwords, tokens, session cookies, JWTs and user IDs, collected from the browser's traffic (`tests/system/support/server-log.ts`).
 - Suite runs headless against local Supabase (`supabase start`), seeded with deterministic test data, Stripe in test mode.
 - Bugs that reached a user get a regression test before the fix.
 - Flaky tests are fixed or quarantined within a day with an issue; never silently retried.

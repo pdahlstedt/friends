@@ -63,3 +63,19 @@ export function getUserOutcome(error: AuthErrorLike | null): 'signed_in' | 'sign
 export function signOutOutcome(error: AuthErrorLike | null): void {
   if (error && !isClientError(error)) throw unavailable();
 }
+
+/** Re-authentication of the signed-in user (spec 0002): only a wrong password is `invalid`. */
+export function verifyPasswordOutcome(
+  error: AuthErrorLike | null,
+): 'ok' | 'invalid' | 'rate_limited' {
+  if (!error) return 'ok';
+  if (error.code === 'invalid_credentials') return 'invalid';
+  if (isRateLimit(error)) return 'rate_limited';
+  throw unavailable();
+}
+
+/** A user that is already gone counts as deleted, so a retried deletion succeeds (spec 0002, AC12). */
+export function deleteUserOutcome(error: AuthErrorLike | null): void {
+  if (!error || error.status === 404 || error.code === 'user_not_found') return;
+  throw unavailable();
+}

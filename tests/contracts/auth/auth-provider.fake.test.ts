@@ -16,6 +16,8 @@ authProviderContract('fake', async () => {
       return tokens.at(-1)!;
     },
     waitForEmailInterval: async () => {},
+    sessionCount: async (userId) =>
+      [...backend.sessions.values()].filter((id) => id === userId).length,
     cleanup: async () => {},
   };
 });

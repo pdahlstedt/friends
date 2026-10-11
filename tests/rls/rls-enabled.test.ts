@@ -1,28 +1,10 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { closeDb, db } from './support/db';
+import { closeDb, db } from '../support/db';
+import { SUPABASE_MANAGED_SCHEMAS } from '../support/schemas';
 
 // Spec 0001, AC18: every table in every application schema has RLS enabled.
 // Supabase-managed schemas are excluded; every other schema (including `public` and any
 // schema added later) is checked automatically, so a new table without RLS fails CI.
-const SUPABASE_MANAGED_SCHEMAS = [
-  'auth',
-  'storage',
-  'realtime',
-  '_realtime',
-  'extensions',
-  'graphql',
-  'graphql_public',
-  'vault',
-  'pgsodium',
-  'pgsodium_masks',
-  'net',
-  'cron',
-  'supabase_functions',
-  'supabase_migrations',
-  'pgbouncer',
-  '_analytics',
-  'information_schema',
-];
 
 type Row = { schema: string; table: string };
 

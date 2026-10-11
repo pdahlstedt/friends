@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  FAKE_SESSION_COOKIE,
   createFakeAuthBackend,
   createFakeAuthProvider,
   issuedTokenFor,
@@ -9,7 +10,9 @@ import { RateLimiterError, type RateLimiter } from '@/lib/adapters/rate-limit/ra
 import { createLogger } from '@/lib/log';
 import type { UserId } from '@/lib/types/ids';
 import { ProfilesError, type ProfilesApi } from '@/modules/profiles';
+import { rateLimitKey } from '@/lib/rate-limit/keys';
 import { createUsersApi } from './api';
+import { createMemoryAuthLeftovers, createMemoryUserAccountStore } from './store/memory';
 
 const PASSWORD = 'correct horse battery staple';
 const MIN_MS = 800;
@@ -58,15 +61,17 @@ function setup(options: { limiter?: RateLimiter } = {}) {
     },
   };
   const logLines: string[] = [];
+  const auditLog = createMemoryAuthLeftovers();
   const api = createUsersApi({
     auth,
     profiles: profiles.api,
+    accounts: createMemoryUserAccountStore(auditLog),
     limiter: options.limiter ?? createFakeRateLimiter(),
     rateLimitSecret: 'r'.repeat(32),
     clock,
     logger: createLogger((_level, line) => logLines.push(line)),
   });
-  return { api, backend, jar, profiles, sleeps, logLines };
+  return { api, backend, jar, profiles, sleeps, logLines, auditLog };
 }
 
 const ctx = (clientIp = '203.0.113.7') => ({ clientIp });
@@ -491,5 +496,212 @@ describe('logOut and getCurrentUser', () => {
   it('getCurrentUser is null without a session', async () => {
     const { api } = setup();
     expect(await api.getCurrentUser()).toBeNull();
+  });
+});
+
+describe('deleteAccount', () => {
+  const SECRET = 'r'.repeat(32);
+
+  /** A confirmed user, signed in on the setup's browser, with some audit history. */
+  async function signedIn(t: ReturnType<typeof setup>, email = newEmail()) {
+    await t.api.signUp({ email, password: PASSWORD }, ctx());
+    await t.api.confirmEmail({ tokenHash: issuedTokenFor(t.backend, email)! });
+    const user = (await t.api.getCurrentUser())!;
+    t.auditLog.entries.push({ action: 'login', userId: user.id, email });
+    return { email, id: user.id };
+  }
+
+  it('[0002-AC2] deletes the account with the right password, erases audit entries and ends the session', async () => {
+    const t = setup();
+    const { email } = await signedIn(t);
+
+    expect(await t.api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({ kind: 'deleted' });
+
+    expect(t.backend.users.has(email)).toBe(false);
+    expect(t.backend.sessions.size).toBe(0);
+    expect(t.jar.cookies.size).toBe(0);
+    expect(t.auditLog.entries).toEqual([]);
+    expect(await t.api.getCurrentUser()).toBeNull();
+  });
+
+  it('[0002-AC6] a wrong, empty or oversized password deletes nothing and keeps the session', async () => {
+    const t = setup();
+    const { email, id } = await signedIn(t);
+    for (const password of ['not the right password', '', 'x'.repeat(1025)]) {
+      expect(await t.api.deleteAccount({ password }, ctx())).toEqual({ kind: 'wrong_password' });
+    }
+    expect(await t.api.deleteAccount({}, ctx())).toEqual({ kind: 'wrong_password' });
+    expect(await t.api.deleteAccount('not an object', ctx())).toEqual({ kind: 'wrong_password' });
+    expect(t.backend.users.has(email)).toBe(true);
+    expect(await t.api.getCurrentUser()).toEqual({ id });
+  });
+
+  it('[0002-AC8] without a session: not_signed_in, before validation or rate limiting', async () => {
+    const hits: string[] = [];
+    const t = setup({ limiter: { hit: async (key) => (hits.push(key), { allowed: true }) } });
+    expect(await t.api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({
+      kind: 'not_signed_in',
+    });
+    expect(await t.api.deleteAccount({ password: '' }, ctx())).toEqual({ kind: 'not_signed_in' });
+    expect(hits).toEqual([]);
+  });
+
+  it('[0002-AC9] a client-supplied user ID or email is rejected; only the session user can be deleted', async () => {
+    const t = setup();
+    const victim = await signedIn(t);
+    // The victim signs out; the attacker signs in on the same backend and browser.
+    await t.api.logOut();
+    const other = await signedIn(t);
+
+    for (const extra of [{ userId: victim.id }, { email: victim.email }]) {
+      expect(await t.api.deleteAccount({ password: PASSWORD, ...extra }, ctx())).toEqual({
+        kind: 'wrong_password',
+      });
+    }
+    expect(t.backend.users.has(victim.email)).toBe(true);
+    expect(t.backend.users.has(other.email)).toBe(true);
+
+    expect(await t.api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({ kind: 'deleted' });
+    expect(t.backend.users.has(other.email)).toBe(false);
+    expect(t.backend.users.has(victim.email)).toBe(true);
+  });
+
+  it('[0002-AC7] limits per IP and per user ID, before the password is checked', async () => {
+    const calls: string[] = [];
+    const limiter: RateLimiter = {
+      hit: async (key) => {
+        calls.push(key);
+        return { allowed: true };
+      },
+    };
+    const t = setup({ limiter });
+    const { id } = await signedIn(t);
+    calls.length = 0; // ignore sign-up's own limits
+
+    await t.api.deleteAccount({ password: 'not the right password' }, ctx('198.51.100.4'));
+
+    expect(calls).toEqual([
+      rateLimitKey(SECRET, 'delete_account', 'ip', '198.51.100.4'),
+      rateLimitKey(SECRET, 'delete_account', 'user', id),
+    ]);
+  });
+
+  it('[0002-AC7] after 5 attempts, even the right password is rate-limited and nothing is deleted', async () => {
+    const t = setup();
+    const { email } = await signedIn(t);
+    for (let i = 0; i < 5; i++) {
+      // A different IP each time: the per-user dimension stops it.
+      await t.api.deleteAccount({ password: `wrong password ${i}` }, ctx(`198.51.100.${i}`));
+    }
+    expect(await t.api.deleteAccount({ password: PASSWORD }, ctx('198.51.100.99'))).toEqual({
+      kind: 'rate_limited',
+    });
+    expect(t.backend.users.has(email)).toBe(true);
+  });
+
+  it("maps the auth server's own rate limit to rate_limited", async () => {
+    const t = setup();
+    const { email } = await signedIn(t);
+    t.backend.failures.set('verifyPassword', 'rate_limited');
+    expect(await t.api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({
+      kind: 'rate_limited',
+    });
+    expect(t.backend.users.has(email)).toBe(true);
+  });
+
+  it.each(['getUser', 'verifyPassword', 'deleteUser'] as const)(
+    '[0002-AC12] when %s is unavailable: failed, nothing deleted, and a retry succeeds',
+    async (op) => {
+      const t = setup();
+      const { email } = await signedIn(t);
+      t.backend.failures.set(op, 'unavailable');
+
+      expect(await t.api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({ kind: 'failed' });
+      expect(t.backend.users.has(email)).toBe(true);
+      expect(t.logLines.map((l) => JSON.parse(l))).toContainEqual(
+        expect.objectContaining({
+          level: 'error',
+          event: 'users.delete_account',
+          outcome: 'failed',
+          errorCode: 'unavailable',
+        }),
+      );
+
+      t.backend.failures.delete(op);
+      expect(await t.api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({ kind: 'deleted' });
+      expect(t.backend.users.has(email)).toBe(false);
+    },
+  );
+
+  it('[0002-AC12] fails closed when the rate limiter is unavailable', async () => {
+    const t = setup({
+      limiter: {
+        hit: async () => {
+          throw new RateLimiterError('unavailable');
+        },
+      },
+    });
+    // Signed in directly on the backend: the broken limiter also guards sign-up and log-in.
+    const id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' as UserId;
+    t.backend.users.set('pre@example.com', {
+      id,
+      email: 'pre@example.com',
+      password: PASSWORD,
+      confirmed: true,
+    });
+    t.backend.sessions.set('session-1', id);
+    t.jar.cookies.set(FAKE_SESSION_COOKIE, 'session-1');
+
+    expect(await t.api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({ kind: 'failed' });
+    expect(t.backend.users.has('pre@example.com')).toBe(true);
+  });
+
+  it('[0002-AC12] is still deleted when erasing audit entries fails, and logs it', async () => {
+    const t = setup();
+    const { email } = await signedIn(t);
+    t.auditLog.unavailable = true;
+
+    expect(await t.api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({ kind: 'deleted' });
+    expect(t.backend.users.has(email)).toBe(false);
+    const lines = t.logLines.map((l) => JSON.parse(l));
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        level: 'error',
+        outcome: 'erase_failed',
+        errorCode: 'unavailable',
+      }),
+    );
+    expect(lines.at(-1)).toMatchObject({ event: 'users.delete_account', outcome: 'deleted' });
+  });
+
+  it('is still deleted when ending the session fails, and logs it', async () => {
+    const t = setup();
+    const { email } = await signedIn(t);
+    t.backend.failures.set('signOut', 'unavailable');
+
+    expect(await t.api.deleteAccount({ password: PASSWORD }, ctx())).toEqual({ kind: 'deleted' });
+    expect(t.backend.users.has(email)).toBe(false);
+    expect(t.logLines.map((l) => JSON.parse(l))).toContainEqual(
+      expect.objectContaining({ level: 'error', outcome: 'sign_out_failed' }),
+    );
+  });
+
+  it('[0002-AC14] logs each outcome without email, password or user ID', async () => {
+    const t = setup();
+    const { email, id } = await signedIn(t);
+    t.logLines.length = 0;
+    await t.api.deleteAccount({ password: 'not the right password' }, ctx());
+    await t.api.deleteAccount({ password: PASSWORD }, ctx());
+    await t.api.deleteAccount({ password: PASSWORD }, ctx());
+
+    expect(t.logLines.map((l) => JSON.parse(l))).toEqual([
+      expect.objectContaining({ event: 'users.delete_account', outcome: 'wrong_password' }),
+      expect.objectContaining({ event: 'users.delete_account', outcome: 'deleted' }),
+      expect.objectContaining({ event: 'users.delete_account', outcome: 'not_signed_in' }),
+    ]);
+    const all = t.logLines.join('\n');
+    for (const secret of [email, id, PASSWORD, 'not the right password']) {
+      expect(all).not.toContain(secret);
+    }
   });
 });

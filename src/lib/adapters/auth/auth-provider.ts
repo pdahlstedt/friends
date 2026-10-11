@@ -33,6 +33,19 @@ export interface AuthProvider {
 
   /** The signed-in user, verified against the auth server (never decoded locally), or null. */
   getUser(): Promise<{ id: UserId } | null>;
+
+  /**
+   * Checks the password of this request's signed-in user, without changing the session
+   * (spec 0002). `invalid` for a wrong password and when nobody is signed in.
+   */
+  verifyPassword(password: string): Promise<'ok' | 'invalid' | 'rate_limited'>;
+
+  /**
+   * Privileged (service role): hard-deletes the user with their sessions and, by cascade, every
+   * module row, in one transaction (ADR-0006). Idempotent: an unknown user counts as deleted.
+   * Callers must have verified the user server-side first.
+   */
+  deleteUser(userId: UserId): Promise<void>;
 }
 
 export type AuthProviderErrorCode = 'unavailable';

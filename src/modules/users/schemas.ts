@@ -21,14 +21,20 @@ export const signUpInputSchema = z.strictObject({ email: emailSchema, password: 
 
 export const resendInputSchema = z.strictObject({ email: emailSchema });
 
+/** A password being checked (not set): shape only, since old accounts may predate the policy. */
+const enteredPasswordSchema = z
+  .string()
+  .min(1)
+  .refine((value) => utf8Bytes(value) <= 1024, { error: 'too_long' });
+
 /** Log-in only checks shape: the sign-up policy would add nothing and could differ from old accounts. */
 export const logInInputSchema = z.strictObject({
   email: emailSchema,
-  password: z
-    .string()
-    .min(1)
-    .refine((value) => utf8Bytes(value) <= 1024, { error: 'too_long' }),
+  password: enteredPasswordSchema,
 });
+
+/** Account deletion (spec 0002): the current password only. No user ID or email (AC9). */
+export const deleteAccountInputSchema = z.strictObject({ password: enteredPasswordSchema });
 
 /** Supabase token hashes (e.g. `pkce_` + hex). Anything else is rejected before Supabase. */
 export const confirmInputSchema = z.strictObject({

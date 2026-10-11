@@ -1,6 +1,6 @@
 # ADR-0004: Module data access — server-only Supabase client behind module-owned stores
 
-- Status: Accepted
+- Status: Accepted; §5 amended by [ADR-0006](0006-account-deletion.md)
 - Date: 2026-10-04
 - Related specs: 0001
 

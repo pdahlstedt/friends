@@ -1,16 +1,18 @@
 import { createServerClient } from '@supabase/ssr';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/db/types.generated';
 import { toUserId } from '@/lib/types/ids';
-import type { AuthProvider } from '../auth-provider';
+import { AuthProviderError, type AuthProvider } from '../auth-provider';
 import { hardenCookieOptions, type CookieJar } from '../cookies';
 import {
+  deleteUserOutcome,
   getUserOutcome,
   resendOutcome,
   signInOutcome,
   signOutOutcome,
   signUpOutcome,
   verifyOutcome,
+  verifyPasswordOutcome,
 } from '../errors';
 
 // Supabase Auth via a @supabase/ssr server client bound to one request's cookies (plan,
@@ -26,6 +28,11 @@ export type SupabaseAuthOptions = {
   cookies: CookieJar;
   /** Secure cookies: true except on the plain-http dev server. */
   secureCookies: boolean;
+  /**
+   * Service role, server-only. Used only by deleteUser (ADR-0006). Null where no deletion can
+   * happen (the proxy only refreshes sessions); deleteUser then fails closed.
+   */
+  serviceClient: SupabaseClient<Database> | null;
 };
 
 export type SupabaseAuth = {
@@ -39,6 +46,7 @@ export function createSupabaseAuth({
   anonKey,
   cookies,
   secureCookies,
+  serviceClient,
 }: SupabaseAuthOptions): SupabaseAuth {
   const client = createServerClient<Database>(url, anonKey, {
     cookies: {
@@ -93,6 +101,35 @@ export function createSupabaseAuth({
       const { data, error } = await client.auth.getUser();
       if (getUserOutcome(error) === 'signed_out' || !data.user) return null;
       return { id: toUserId(data.user.id) };
+    },
+
+    async verifyPassword(password) {
+      // The email is read here, server-side, and never leaves the adapter.
+      const { data, error } = await client.auth.getUser();
+      if (getUserOutcome(error) === 'signed_out' || !data.user?.email) return 'invalid';
+
+      // A separate client with no cookies: this request's session is never touched.
+      const probe = createClient<Database>(url, anonKey, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      });
+      const { error: signInError } = await probe.auth.signInWithPassword({
+        email: data.user.email,
+        password,
+      });
+      const outcome = verifyPasswordOutcome(signInError);
+      if (outcome === 'ok') {
+        // End the extra session the check created, so no stray session remains.
+        const { error: signOutError } = await probe.auth.signOut({ scope: 'local' });
+        signOutOutcome(signOutError);
+      }
+      return outcome;
+    },
+
+    async deleteUser(userId) {
+      // Hard delete (not soft): one transaction removes the user, sessions and module rows.
+      if (!serviceClient) throw new AuthProviderError('unavailable');
+      const { error } = await serviceClient.auth.admin.deleteUser(userId);
+      deleteUserOutcome(error);
     },
   };
 

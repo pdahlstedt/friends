@@ -32,10 +32,11 @@ export default defineConfig({
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
-    // AC15: the journey test also runs at phone and tablet widths (Chromium only, as in CI).
+    // 0001 AC15, 0002 AC13: journeys tagged @responsive also run at phone and tablet widths
+    // (Chromium only, as in CI).
     {
       name: 'phone',
-      grep: /\[0001-AC15\]/,
+      grep: /@responsive/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 360, height: 740 },
@@ -46,7 +47,7 @@ export default defineConfig({
     },
     {
       name: 'tablet',
-      grep: /\[0001-AC15\]/,
+      grep: /@responsive/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 768, height: 1024 },

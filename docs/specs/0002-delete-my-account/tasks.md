@@ -16,7 +16,7 @@ Format: `- [ ] Tn — <description> (AC refs) — <commit type>(<scope>)`
 
 ## UI and end to end
 
-- [ ] T6 — Pages and action: a "Delete account" link on `/me`, `/account/delete` (GET explanation + password form, POST action; anonymous visitors redirected), `/account/deleted`. Add both to `PUBLIC_PAGES`. System tests `[0002-AC1]`, `[0002-AC2]`, `[0002-AC3]`, plus AC5, AC6, AC7, AC8, AC9, AC10 (GET from a link, cross-origin POST), AC11 (second browser) and AC15 (headers). (AC1–AC3, AC5–AC11, AC15) — feat(users)
+- [x] T6 — Pages and action: a "Delete account" link on `/me`, `/account/delete` (GET explanation + password form, POST action; anonymous visitors redirected), `/account/deleted`. Add both to `PUBLIC_PAGES`. System tests `[0002-AC1]`, `[0002-AC2]`, `[0002-AC3]`, plus AC5, AC6, AC7, AC8, AC9, AC10 (GET from a link, cross-origin POST), AC11 (second browser) and AC15 (headers). (AC1–AC3, AC5–AC11, AC15) — feat(users)
 - [ ] T7 — Viewports and logs: phone and tablet projects select a `@responsive` tag (the 0001 journey retagged); a `[0002-AC13]` journey through profile → delete → deleted at all three viewports; the server-log collector also collects the user ID (JWT `sub`). (AC13, AC14) — test(system)
 
 ## Close-out

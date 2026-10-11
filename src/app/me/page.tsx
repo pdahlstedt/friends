@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { PageShell } from '@/app/_components/form';
 import { LogOutButton } from '@/app/_components/log-out-button';
@@ -57,6 +58,12 @@ export default async function MePage() {
         </p>
       </section>
       <LogOutButton />
+      <Link
+        href="/account/delete"
+        className="text-center text-sm text-red-700 underline underline-offset-4"
+      >
+        Delete account
+      </Link>
     </PageShell>
   );
 }

@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import type { BrowserContext, Request } from '@playwright/test';
 
-// AC20: the server log (written by the Playwright webServer, see playwright.config.ts) must never
-// contain a test's email addresses, passwords, verification tokens, session cookies or JWTs.
+// 0001 AC20 and 0002 AC14: the server log (written by the Playwright webServer, see
+// playwright.config.ts) must never contain a test's email addresses, passwords, verification
+// tokens, session cookies, JWTs or user IDs.
 // The secrets are collected from the browser's own traffic and cookie jar, so every test is
 // covered without having to declare what it typed.
 
@@ -72,9 +73,14 @@ export class SecretCollector {
     if (!cookieValue.startsWith('base64-')) return;
     try {
       const json = Buffer.from(cookieValue.slice('base64-'.length), 'base64url').toString('utf8');
-      const session = JSON.parse(json) as { access_token?: string; refresh_token?: string };
+      const session = JSON.parse(json) as {
+        access_token?: string;
+        refresh_token?: string;
+        user?: { id?: string };
+      };
       this.add(session.access_token);
       this.add(session.refresh_token);
+      this.add(session.user?.id);
     } catch {
       // Not a session payload; the raw cookie value is already collected.
     }

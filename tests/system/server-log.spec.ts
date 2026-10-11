@@ -46,3 +46,31 @@ test('[0001-AC20] sign-up, verification, log-in and log-out leave no personal da
   }
   expect(await secretsInServerLog(collected)).toEqual([]);
 });
+
+test('[0002-AC14] account deletion, failures included, leaves no personal data or user ID in the log', async ({
+  page,
+  email,
+  secrets,
+}) => {
+  await signUp(page, email);
+  await confirmFromEmail(page, email);
+  for (const password of ['a wrong password', PASSWORD]) {
+    await page.goto('/account/delete');
+    await page.getByLabel('Your password').fill(password);
+    await page.getByRole('button', { name: 'Delete my account permanently' }).click();
+  }
+  await expect(page).toHaveURL('/account/deleted');
+
+  await secrets.settled();
+  const collected = [...secrets.secrets];
+  expect(collected).toContain(email);
+  expect(collected).toContain('a wrong password');
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  expect(collected.filter((s) => uuid.test(s)).length).toBeGreaterThan(0);
+
+  const log = await readFile(SERVER_LOG, 'utf8');
+  for (const outcome of ['wrong_password', 'deleted']) {
+    expect(log).toContain(`"event":"users.delete_account","outcome":"${outcome}"`);
+  }
+  expect(await secretsInServerLog(collected)).toEqual([]);
+});

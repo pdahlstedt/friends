@@ -21,4 +21,4 @@ Format: `- [ ] Tn — <description> (AC refs) — <commit type>(<scope>)`
 
 ## Close-out
 
-- [ ] T8 — Docs: ADR-0004 status line notes the §5 amendment by ADR-0006; CLAUDE.md (cascading FK rule for module tables; `db()` allowed for catalog checks and the AC4 residue scan); architecture overview (`users` schema, deletion flow, `AuthProvider` methods); `docs/testing/strategy.md`; spec traceability table; spec status Done. — docs
+- [x] T8 — Docs: ADR-0004 status line notes the §5 amendment by ADR-0006; CLAUDE.md (cascading FK rule for module tables; `db()` allowed for catalog checks and the AC4 residue scan); architecture overview (`users` schema, deletion flow, `AuthProvider` methods); `docs/testing/strategy.md`; spec traceability table; spec status Done. — docs
